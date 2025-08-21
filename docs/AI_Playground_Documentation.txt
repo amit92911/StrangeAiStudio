@@ -1,0 +1,12 @@
+﻿StrangeAi Studio - AI Playground Documentation (placeholder)
+
+This documentation has been moved out of the UI while we focus on stabilizing the app.
+Update this file once we reach the next checkpoint.
+
+Notes:
+- Frontend: React + Vite + Tailwind + shadcn/ui
+- Backend: Base44 SDK (entities, auth, serverless functions)
+- Voice STT: Deepgram live WebSocket
+- TTS: Web Speech API (SpeechSynthesis)
+
+When ready, paste the fuller doc here.
