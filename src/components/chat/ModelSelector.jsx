@@ -30,7 +30,7 @@ export default function ModelSelector({
   return (
     <div className="flex items-center space-x-2">
       <Select value={selectedProvider} onValueChange={onProviderChange}>
-        <SelectTrigger className="w-40 bg-zinc-900 border-zinc-800 text-zinc-200 focus:border-indigo-500/50">
+        <SelectTrigger className="w-40">
           <div className="flex items-center space-x-2">
             <div className={`w-4 h-4 rounded bg-gradient-to-r ${providerColors[selectedProvider]} flex items-center justify-center`}>
               <Icon className="w-2.5 h-2.5 text-white" />
@@ -38,11 +38,11 @@ export default function ModelSelector({
             <SelectValue />
           </div>
         </SelectTrigger>
-        <SelectContent className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800">
+        <SelectContent>
           {providers.map((provider) => {
             const ProviderIcon = providerIcons[provider.id] || Sparkles;
             return (
-              <SelectItem key={provider.id} value={provider.id} className="text-zinc-200 focus:bg-zinc-800">
+              <SelectItem key={provider.id} value={provider.id} className="text-zinc-200">
                 <div className="flex items-center space-x-2">
                   <div className={`w-4 h-4 rounded bg-gradient-to-r ${providerColors[provider.id]} flex items-center justify-center`}>
                     <ProviderIcon className="w-2.5 h-2.5 text-white" />
@@ -56,12 +56,12 @@ export default function ModelSelector({
       </Select>
 
       <Select value={selectedModel} onValueChange={onModelChange}>
-        <SelectTrigger className="w-48 bg-zinc-900 border-zinc-800 text-zinc-200 focus:border-indigo-500/50">
+        <SelectTrigger className="w-48">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800">
+        <SelectContent>
           {currentProvider?.models.map((model) => (
-            <SelectItem key={model} value={model} className="text-zinc-200 focus:bg-zinc-800">
+            <SelectItem key={model} value={model} className="text-zinc-200">
               {model}
             </SelectItem>
           ))}

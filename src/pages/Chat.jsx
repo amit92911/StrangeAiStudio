@@ -27,6 +27,7 @@ import ModelSelector from "../components/chat/ModelSelector";
 import VoiceMode from "../components/chat/VoiceMode";
 import ChatSettings from "../components/chat/ChatSettings";
 import ChatSidebar from "../components/chat/ChatSidebar";
+import SettingsPanel from "../components/chat/SettingsPanel";
 
 const providers = [
   { id: 'openai', name: 'OpenAI', models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
@@ -51,6 +52,7 @@ export default function ChatPage() {
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(true);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -253,30 +255,30 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Header */}
-        <div className="bg-zinc-900/60 backdrop-blur-xl border-b border-zinc-800 p-4">
+        <div className="bg-card/60 backdrop-blur-xl border-b border-white/10 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                className="lg:hidden text-white/60 hover:text-white hover:bg-white/10"
                 onClick={() => setIsChatSidebarOpen(!isChatSidebarOpen)}
               >
                 <MessageSquare className="w-4 h-4" />
               </Button>
               
               <div>
-                <h2 className="text-lg font-semibold text-zinc-200">
+                <h2 className="text-lg font-semibold text-white/95">
                   {currentChat?.title || "Select or create a chat"}
                 </h2>
-                <div className="flex items-center space-x-2 text-sm text-zinc-400">
+                <div className="flex items-center space-x-2 text-sm text-white/60">
                   <span>{selectedProvider}</span>
                   <span>•</span>
                   <span>{selectedModel}</span>
                   {selectedProject && (
                     <>
                       <span>•</span>
-                      <Badge variant="outline" className="border-zinc-800 text-zinc-400">
+                      <Badge variant="outline" className="border-white/10 text-white/60">
                         {selectedProject.name}
                       </Badge>
                     </>
@@ -297,7 +299,7 @@ export default function ChatPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                className="text-white/60 hover:text-white hover:bg-white/10"
                 onClick={() => setShowVoiceMode(true)}
               >
                 <Phone className="w-4 h-4" />
@@ -306,8 +308,8 @@ export default function ChatPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-                onClick={() => setShowSettings(true)}
+                className="text-white/60 hover:text-white hover:bg-white/10"
+                onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
               >
                 <Settings className="w-4 h-4" />
               </Button>
@@ -320,13 +322,13 @@ export default function ChatPage() {
           <div className="max-w-4xl mx-auto space-y-6">
             {!currentChat ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-zinc-800 rounded-2xl flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-2xl flex items-center justify-center">
                   <Sparkles className="w-8 h-8 text-zinc-100" />
                 </div>
-                <h3 className="text-xl font-semibold text-zinc-200 mb-2">
-                  Welcome to AI Playground
+                <h3 className="text-xl font-semibold text-white/95 mb-2 brand-strangeai-title">
+                  Welcome to strangeAi
                 </h3>
-                <p className="text-zinc-400 mb-6">
+                <p className="text-white/60 mb-6">
                   Create a new chat or select an existing one to start
                 </p>
                 <Button
@@ -340,13 +342,13 @@ export default function ChatPage() {
               </div>
             ) : messages.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-zinc-800 rounded-2xl flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-2xl flex items-center justify-center">
                   <Sparkles className="w-8 h-8 text-zinc-100" />
                 </div>
-                <h3 className="text-xl font-semibold text-zinc-200 mb-2">
+                <h3 className="text-xl font-semibold text-white/95 mb-2">
                   Start a conversation
                 </h3>
-                <p className="text-zinc-400">
+                <p className="text-white/60">
                   Ask anything or try voice mode for a natural conversation
                 </p>
               </div>
@@ -374,7 +376,7 @@ export default function ChatPage() {
 
         {/* Input Area */}
         {currentChat && (
-          <div className="bg-zinc-900/60 backdrop-blur-xl border-t border-zinc-800 p-4">
+          <div className="bg-card/60 backdrop-blur-xl border-t border-white/10 p-4">
             <div className="max-w-4xl mx-auto">
               <div className="relative">
                 <Textarea
@@ -383,14 +385,14 @@ export default function ChatPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message... (Shift+Enter for new line)"
-                  className="min-h-[60px] max-h-[200px] pr-24 bg-zinc-900 border-zinc-800 text-zinc-200 placeholder:text-zinc-500 focus:border-indigo-500/50 focus:ring-indigo-500/20 resize-none"
+                  className="min-h-[60px] max-h-[200px] pr-24 text-zinc-200 placeholder:text-white/40 focus:border-indigo-500/50 focus:ring-indigo-500/20 resize-none"
                 />
                 
                 <div className="absolute right-2 bottom-2 flex items-center space-x-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                    className="text-white/60 hover:text-white hover:bg-white/10"
                   >
                     <Paperclip className="w-4 h-4" />
                   </Button>
@@ -398,7 +400,7 @@ export default function ChatPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                    className="text-white/60 hover:text-white hover:bg-white/10"
                   >
                     <Mic className="w-4 h-4" />
                   </Button>
@@ -416,6 +418,29 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={isSettingsPanelOpen}
+        onClose={() => setIsSettingsPanelOpen(false)}
+        currentChat={currentChat}
+        selectedModel={selectedModel}
+        selectedProvider={selectedProvider}
+        onTranscriptSave={async (transcriptEntries) => {
+          if (currentChat && transcriptEntries.length > 0) {
+            const formattedTranscript = transcriptEntries.map(entry => 
+              `**${entry.speaker}**: ${entry.text}`
+            ).join('\n\n');
+
+            await Message.create({
+              chat_id: currentChat.id,
+              role: "system",
+              content: `### Voice Conversation Transcript\n\n${formattedTranscript}`
+            });
+            await loadMessages(currentChat.id);
+          }
+        }}
+      />
 
       {/* Voice Mode Modal */}
       {showVoiceMode && (

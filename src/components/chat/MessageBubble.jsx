@@ -30,7 +30,7 @@ export default function MessageBubble({ message }) {
               ? 'bg-indigo-600' 
               : isError
                 ? 'bg-red-600'
-                : 'bg-zinc-800 border border-zinc-700'
+                : 'bg-white/10 border border-white/10'
           }`}>
             {isUser ? (
               <User className="w-4 h-4 text-white" />
@@ -48,10 +48,10 @@ export default function MessageBubble({ message }) {
           <div className={`
             rounded-2xl px-4 py-3 backdrop-blur-sm
             ${isUser 
-              ? 'bg-indigo-600/15 border border-indigo-500/30' 
+              ? 'bg-indigo-600/20 border border-indigo-500/30' 
               : isError
                 ? 'bg-red-600/15 border border-red-500/30'
-                : 'bg-zinc-900 border border-zinc-800'
+                : 'bg-card/60 border border-white/10'
             }
           `}>
             {isUser ? (
@@ -61,16 +61,16 @@ export default function MessageBubble({ message }) {
             ) : (
               <div className="prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown
-                  className="text-zinc-200 leading-relaxed"
+                  className="text-white/92 leading-relaxed"
                   components={{
                     code: ({ inline, className, children, ...props }) => {
                       return inline ? (
-                        <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-indigo-300 text-sm font-mono">
+                        <code className="px-1.5 py-0.5 rounded bg-white/10 text-indigo-300 text-sm font-mono">
                           {children}
                         </code>
                       ) : (
-                        <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 overflow-x-auto">
-                          <code className="text-zinc-200 text-sm font-mono">{children}</code>
+                        <pre className="bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto">
+                          <code className="text-white/90 text-sm font-mono">{children}</code>
                         </pre>
                       );
                     },
@@ -78,11 +78,11 @@ export default function MessageBubble({ message }) {
                     ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
                     li: ({ children }) => <li className="mb-1">{children}</li>,
-                    h1: ({ children }) => <h1 className="text-lg font-semibold mb-2 text-zinc-100">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-zinc-100">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 text-zinc-100">{children}</h3>,
+                    h1: ({ children }) => <h1 className="text-lg font-semibold mb-2 text-white">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-white">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 text-white">{children}</h3>,
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-2 border-indigo-500/50 pl-3 my-2 text-zinc-300">
+                      <blockquote className="border-l-2 border-indigo-500/50 pl-3 my-2 text-white/80">
                         {children}
                       </blockquote>
                     ),
@@ -99,9 +99,9 @@ export default function MessageBubble({ message }) {
             flex items-center justify-between mt-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity
             ${isUser ? 'flex-row-reverse' : 'flex-row'}
           `}>
-            <div className="flex items-center space-x-2 text-xs text-zinc-500">
+            <div className="flex items-center space-x-2 text-xs text-white/50">
               {message.model_used && (
-                <Badge variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
+                <Badge variant="outline" className="text-white/60 text-xs">
                   {message.model_used}
                 </Badge>
               )}
@@ -113,7 +113,7 @@ export default function MessageBubble({ message }) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+              className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10"
               onClick={() => copyToClipboard(message.content)}
             >
               {copied ? (

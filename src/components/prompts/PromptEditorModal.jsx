@@ -29,7 +29,7 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-200">
+      <DialogContent className="max-w-2xl text-zinc-200">
         <DialogHeader>
           <DialogTitle className="text-zinc-200">{prompt?.id ? 'Edit Prompt' : 'Create New Prompt'}</DialogTitle>
         </DialogHeader>
@@ -39,7 +39,7 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
             <Input
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-200"
+              className="text-zinc-200"
               required
             />
           </div>
@@ -48,7 +48,7 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
             <Textarea
               value={formData.body}
               onChange={(e) => handleInputChange('body', e.target.value)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-200 min-h-[200px]"
+              className="text-zinc-200 min-h-[200px]"
               required
             />
           </div>
@@ -58,7 +58,7 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
               <Input
                 value={formData.folder}
                 onChange={(e) => handleInputChange('folder', e.target.value)}
-                className="bg-zinc-900 border-zinc-800 text-zinc-200"
+                className="text-zinc-200"
               />
             </div>
             <div className="space-y-2">
@@ -66,12 +66,12 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
               <Input
                 value={formData.tags}
                 onChange={(e) => handleInputChange('tags', e.target.value)}
-                className="bg-zinc-900 border-zinc-800 text-zinc-200"
+                className="text-zinc-200"
               />
             </div>
           </div>
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="border-zinc-700 text-zinc-400">Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose} className="text-zinc-400">Cancel</Button>
             <Button type="submit" className="bg-indigo-600 hover:bg-indigo-500">Save Prompt</Button>
           </DialogFooter>
         </form>

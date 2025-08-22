@@ -67,7 +67,7 @@ export default function ProjectsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white/92 mb-2">Projects</h1>
+            <h1 className="text-2xl font-bold text-white/95 mb-2">Projects</h1>
             <p className="text-white/60">Organize your AI conversations by project</p>
           </div>
           <Button
@@ -82,10 +82,10 @@ export default function ProjectsPage() {
         {/* Projects Grid */}
         {projects.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-6 bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-6 bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center">
               <FolderOpen className="w-8 h-8 text-white/60" />
             </div>
-            <h3 className="text-xl font-semibold text-white/92 mb-2">No projects yet</h3>
+            <h3 className="text-xl font-semibold text-white/95 mb-2">No projects yet</h3>
             <p className="text-white/60 mb-6 max-w-md mx-auto">
               Create your first project to organize your AI conversations and manage prompts, files, and settings.
             </p>

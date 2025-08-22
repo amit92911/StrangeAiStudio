@@ -76,31 +76,32 @@ button:focus-visible {
 
 @layer base {
   :root {
-    --background: 240 5% 7%;
+    /* Refined dark palette for glassy UI */
+    --background: 240 6% 6%;
     --foreground: 0 0% 96%;
-    --card: 240 4% 10%;
+    --card: 240 5% 10%;
     --card-foreground: 0 0% 96%;
-    --popover: 240 4% 10%;
+    --popover: 240 5% 10%;
     --popover-foreground: 0 0% 96%;
-    --primary: 240 6% 12%;
-    --primary-foreground: 0 0% 96%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 240 4% 14%;
     --secondary-foreground: 0 0% 96%;
     --muted: 240 4% 18%;
-    --muted-foreground: 0 0% 70%;
+    --muted-foreground: 0 0% 72%;
     --accent: 240 4% 14%;
     --accent-foreground: 0 0% 96%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 22%;
-    --input: 240 5% 22%;
-    --ring: 243 75% 59%; /* indigo-500 */
+    --border: 240 5% 20%;
+    --input: 240 5% 20%;
+    --ring: 243 75% 59%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 1rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -111,31 +112,31 @@ button:focus-visible {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 240 5% 7%;
+    --background: 240 6% 6%;
     --foreground: 0 0% 92%;
-    --card: 240 4% 10%;
+    --card: 240 5% 10%;
     --card-foreground: 0 0% 92%;
-    --popover: 240 4% 10%;
+    --popover: 240 5% 10%;
     --popover-foreground: 0 0% 92%;
-    --primary: 240 6% 12%;
-    --primary-foreground: 0 0% 92%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 240 4% 14%;
     --secondary-foreground: 0 0% 92%;
     --muted: 240 4% 18%;
-    --muted-foreground: 0 0% 70%;
+    --muted-foreground: 0 0% 72%;
     --accent: 240 4% 14%;
     --accent-foreground: 0 0% 92%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 96%;
-    --border: 240 5% 22%;
-    --input: 240 5% 22%;
+    --border: 240 5% 20%;
+    --input: 240 5% 20%;
     --ring: 243 75% 59%;
     --chart-1: 243 75% 59%;
     --chart-2: 200 50% 55%;
     --chart-3: 160 45% 50%;
     --chart-4: 300 45% 60%;
     --chart-5: 20 70% 55%;
-    --sidebar-background: 240 5% 8%;
+    --sidebar-background: 240 6% 7%;
     --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 243 75% 59%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -154,5 +155,16 @@ button:focus-visible {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .brand-strangeai-title {
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    letter-spacing: -0.01em;
+  }
+  .brand-strangeai-subtitle {
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    letter-spacing: 0.02em;
   }
 }

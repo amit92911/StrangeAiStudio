@@ -34,7 +34,7 @@ export default function ProjectCard({ project, onDelete }) {
   const gradientClass = colorThemes[project.color] || colorThemes.azure;
 
   return (
-    <Card className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all duration-300 group">
+    <Card className="hover:border-white/20 transition-all duration-300 group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
@@ -42,8 +42,8 @@ export default function ProjectCard({ project, onDelete }) {
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
-              <CardTitle className="text-zinc-200 text-lg">{project.name}</CardTitle>
-              <p className="text-zinc-400 text-sm mt-1">
+              <CardTitle className="text-white/95 text-lg">{project.name}</CardTitle>
+              <p className="text-white/60 text-sm mt-1">
                 {format(new Date(project.created_date), 'MMM d, yyyy')}
               </p>
             </div>
@@ -54,18 +54,18 @@ export default function ProjectCard({ project, onDelete }) {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-white/60 hover:text-white hover:bg-white/10"
               >
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800">
-              <DropdownMenuItem className="text-zinc-200 focus:bg-zinc-800">
+            <DropdownMenuContent>
+              <DropdownMenuItem className="text-zinc-200">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="text-red-400 focus:bg-red-500/20 focus:text-red-300"
+                className="text-red-400"
                 onClick={() => onDelete(project.id)}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -78,26 +78,26 @@ export default function ProjectCard({ project, onDelete }) {
 
       <CardContent className="pt-0">
         {project.description && (
-          <p className="text-zinc-300 text-sm mb-4 line-clamp-2">
+          <p className="text-white/80 text-sm mb-4 line-clamp-2">
             {project.description}
           </p>
         )}
 
         <div className="flex flex-wrap gap-2 mb-4">
           {project.memory_enabled && (
-            <Badge variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
+            <Badge variant="outline" className="text-white/60 text-xs">
               <Brain className="w-3 h-3 mr-1" />
               Memory
             </Badge>
           )}
           {project.default_model && (
-            <Badge variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
+            <Badge variant="outline" className="text-white/60 text-xs">
               {project.default_model}
             </Badge>
           )}
         </div>
 
-        <div className="flex items-center justify-between text-sm text-zinc-400">
+        <div className="flex items-center justify-between text-sm text-white/60">
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <MessageSquare className="w-4 h-4 mr-1" />

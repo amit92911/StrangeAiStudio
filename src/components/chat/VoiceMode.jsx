@@ -9,6 +9,15 @@ import { deepgramVoice } from "@/api/functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  TTSProvider,
+  listVoices as listTtsVoices,
+  getAudioURL,
+  getDefaultTTSProvider,
+  setDefaultTTSProvider,
+  getDefaultTTSVoice,
+  setDefaultTTSVoice
+} from "@/api/tts";
 import { 
   Phone, 
   PhoneOff, 
@@ -33,6 +42,9 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
   const [currentSpeaker, setCurrentSpeaker] = useState(null);
   const [voices, setVoices] = useState([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState(null);
+  const [ttsProvider, setTtsProvider] = useState(getDefaultTTSProvider());
+  const [availableTtsVoices, setAvailableTtsVoices] = useState([]);
+  const [selectedTtsVoiceId, setSelectedTtsVoiceId] = useState(getDefaultTTSVoice() || null);
   const [showSettings, setShowSettings] = useState(false);
   const [aecEnabled, setAecEnabled] = useState(false);
   const [error, setError] = useState(null);
@@ -48,16 +60,22 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
   const analyserRef = useRef(null);
   const vadRef = useRef(null);
   const keepAliveIntervalRef = useRef(null); // Add ref for keep-alive
+  const ttsAudioRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     initializeVoices();
+    loadTtsVoices(ttsProvider);
     
     return () => {
       isMountedRef.current = false;
       cleanup();
     };
   }, []);
+
+  useEffect(() => {
+    loadTtsVoices(ttsProvider);
+  }, [ttsProvider]);
 
   const initializeVoices = () => {
     if (!('speechSynthesis' in window)) return;
@@ -76,6 +94,24 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
     synthRef.current = window.speechSynthesis;
     synthRef.current.onvoiceschanged = loadVoices;
     loadVoices();
+  };
+
+  const loadTtsVoices = async (provider) => {
+    try {
+      const list = await listTtsVoices(provider);
+      setAvailableTtsVoices(list);
+      const stored = getDefaultTTSVoice();
+      const exists = list.find(v => v.id === stored);
+      if (exists) {
+        setSelectedTtsVoiceId(stored);
+      } else if (list[0]) {
+        setSelectedTtsVoiceId(list[0].id);
+        setDefaultTTSVoice(list[0].id);
+      }
+    } catch (e) {
+      console.warn('Failed to load TTS voices', e);
+      setAvailableTtsVoices([]);
+    }
   };
 
   const initializeAudioContext = async () => {
@@ -128,17 +164,14 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
   };
 
   const handleBargeIn = () => {
-    if (synthRef.current && synthRef.current.speaking) {
-      synthRef.current.cancel();
-      setCurrentSpeaker(null);
-      setIsProcessing(false);
-      // Immediately restart listening after barge-in
-      setTimeout(() => {
-        if (isMountedRef.current && isConnected && !isMuted) {
-          startListening();
-        }
-      }, 100);
-    }
+    cancelAnyTtsPlayback();
+    setCurrentSpeaker(null);
+    setIsProcessing(false);
+    setTimeout(() => {
+      if (isMountedRef.current && isConnected && !isMuted) {
+        startListening();
+      }
+    }, 80);
   };
 
   const connectToDeepgram = async () => {
@@ -264,7 +297,20 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
     setIsListening(false);
   };
 
-  const speak = (text) => {
+  const cancelAnyTtsPlayback = () => {
+    if (synthRef.current && synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    if (ttsAudioRef.current) {
+      try {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current.src = '';
+      } catch {}
+      ttsAudioRef.current = null;
+    }
+  };
+
+  const speak = async (text) => {
     if (isSpeakerOff || !text.trim()) {
       setCurrentSpeaker(null);
       setIsProcessing(false);
@@ -276,43 +322,67 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
       return;
     }
 
-    synthRef.current.cancel();
+    cancelAnyTtsPlayback();
+    // prevent mic from feeding back during TTS
+    stopListening();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    const voice = voices.find(v => v.voiceURI === selectedVoiceURI);
-    if (voice) {
-      utterance.voice = voice;
+    if (ttsProvider === TTSProvider.WebSpeech) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = voices.find(v => v.voiceURI === (selectedTtsVoiceId || selectedVoiceURI));
+      if (voice) {
+        utterance.voice = voice;
+      }
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.onstart = () => { if (isMountedRef.current) setCurrentSpeaker('ai'); };
+      utterance.onend = () => {
+        if (isMountedRef.current) {
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        }
+      };
+      utterance.onerror = () => {
+        if (isMountedRef.current) {
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        }
+      };
+      synthRef.current.speak(utterance);
+      return;
     }
-    
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
 
-    utterance.onstart = () => {
-      if (isMountedRef.current) {
-        setCurrentSpeaker('ai');
-      }
-    };
-
-    utterance.onend = () => {
+    try {
+      const url = await getAudioURL(ttsProvider, text, selectedTtsVoiceId);
+      const audio = new Audio(url);
+      ttsAudioRef.current = audio;
+      audio.onplay = () => { if (isMountedRef.current) setCurrentSpeaker('ai'); };
+      audio.onended = () => {
+        if (isMountedRef.current) {
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        }
+        try { URL.revokeObjectURL(url); } catch {}
+      };
+      audio.onerror = () => {
+        if (isMountedRef.current) {
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        }
+      };
+      await audio.play();
+    } catch (e) {
+      console.error('TTS playback failed:', e);
       if (isMountedRef.current) {
         setCurrentSpeaker(null);
         setIsProcessing(false);
+        setTimeout(() => { if (!isMuted) startListening(); }, 150);
       }
-    };
-
-    utterance.onerror = (event) => {
-      if (event.error !== 'interrupted') {
-        console.error('Speech synthesis error:', event.error);
-      }
-      if (isMountedRef.current) {
-        setCurrentSpeaker(null);
-        setIsProcessing(false);
-      }
-    };
-
-    synthRef.current.speak(utterance);
+    }
   };
 
   const handleUserSpeech = async (speechText) => {
@@ -419,6 +489,10 @@ Respond helpfully and naturally:`;
     if (synthRef.current) {
       synthRef.current.cancel();
     }
+    if (ttsAudioRef.current) {
+      try { ttsAudioRef.current.pause(); ttsAudioRef.current.src = ''; } catch {}
+      ttsAudioRef.current = null;
+    }
     
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
@@ -492,17 +566,30 @@ Respond helpfully and naturally:`;
         </div>
 
         <div className="space-y-2">
+          <Label className="text-white/70">TTS Provider</Label>
+          <Select value={ttsProvider} onValueChange={(val) => { setTtsProvider(val); setDefaultTTSProvider(val); }}>
+            <SelectTrigger className="w-full bg-white/5 border-white/10 text-white/92">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900/95 backdrop-blur-xl border border-white/20">
+              <SelectItem value={TTSProvider.WebSpeech} className="text-white/90 focus:bg-white/10">Browser (Web Speech)</SelectItem>
+              <SelectItem value={TTSProvider.OpenAI} className="text-white/90 focus:bg-white/10">OpenAI</SelectItem>
+              <SelectItem value={TTSProvider.Google} className="text-white/90 focus:bg-white/10">Google</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="ai-voice" className="text-white/70">AI Voice</Label>
-          <Select value={selectedVoiceURI || ''} onValueChange={setSelectedVoiceURI}>
+          <Select value={selectedTtsVoiceId || ''} onValueChange={(val) => { setSelectedTtsVoiceId(val); setDefaultTTSVoice(val); }}>
             <SelectTrigger id="ai-voice" className="w-full bg-white/5 border-white/10 text-white/92">
               <SelectValue placeholder="Select a voice" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900/95 backdrop-blur-xl border border-white/20">
-              {voices.map(voice => (
-                <SelectItem key={voice.voiceURI} value={voice.voiceURI} className="text-white/90 focus:bg-white/10">
+              {availableTtsVoices.map(v => (
+                <SelectItem key={v.id} value={v.id} className="text-white/90 focus:bg-white/10">
                   <div>
-                    <div className="font-medium">{voice.name}</div>
-                    <div className="text-xs text-white/60">{voice.lang}</div>
+                    <div className="font-medium">{v.name}</div>
                   </div>
                 </SelectItem>
               ))}
