@@ -37,7 +37,7 @@ export default function PromptCard({ prompt, onEdit, onDelete }) {
       <CardContent className="flex-1 flex flex-col">
         <p className="text-sm text-white/85 line-clamp-3 flex-1">{prompt.body}</p>
         <div className="flex flex-wrap gap-2 mt-4">
-          {prompt.folder && <Badge className="bg-indigo-500/10 text-indigo-300 border-indigo-500/20">{prompt.folder}</Badge>}
+          {prompt.folder && <Badge className="bg-slate-600/10 text-slate-300 border-slate-600/20">{prompt.folder}</Badge>}
           {prompt.tags?.map(tag => (
             <Badge key={tag} variant="outline" className="text-white/60">{tag}</Badge>
           ))}

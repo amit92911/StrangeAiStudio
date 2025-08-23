@@ -22,12 +22,12 @@ import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 
 const colorThemes = {
-  azure: "from-blue-400 to-cyan-500",
-  violet: "from-violet-400 to-purple-500", 
-  cyan: "from-cyan-400 to-teal-500",
-  emerald: "from-emerald-400 to-green-500",
-  amber: "from-amber-400 to-orange-500",
-  rose: "from-rose-400 to-pink-500"
+  azure: "from-slate-600 to-slate-700",
+  violet: "from-slate-700 to-slate-800", 
+  cyan: "from-slate-600 to-slate-700",
+  emerald: "from-slate-700 to-slate-800",
+  amber: "from-slate-600 to-slate-700",
+  rose: "from-slate-700 to-slate-800"
 };
 
 export default function ProjectCard({ project, onDelete }) {
@@ -110,7 +110,7 @@ export default function ProjectCard({ project, onDelete }) {
           </div>
           
           <Link to={createPageUrl("Chat", `project=${project.id}`)}>
-            <Button size="sm" className={`bg-gradient-to-r ${gradientClass} text-white hover:opacity-90`}>
+            <Button size="sm" className="bg-slate-700 hover:bg-slate-600 text-white">
               Open
             </Button>
           </Link>

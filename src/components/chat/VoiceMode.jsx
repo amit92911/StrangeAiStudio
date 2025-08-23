@@ -49,6 +49,9 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
   const [aecEnabled, setAecEnabled] = useState(false);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isContinuousListening, setIsContinuousListening] = useState(false);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [speechBuffer, setSpeechBuffer] = useState('');
   
   const wsRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -79,7 +82,7 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
 
   const initializeVoices = () => {
     if (!('speechSynthesis' in window)) return;
-    
+
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       if (availableVoices.length > 0) {
@@ -87,16 +90,35 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
         const englishVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
         if (englishVoice) {
           setSelectedVoiceURI(englishVoice.voiceURI);
+          console.log('WebSpeech voices loaded:', availableVoices.length, 'voices available');
         }
+      } else {
+        console.log('No WebSpeech voices available');
       }
     };
 
     synthRef.current = window.speechSynthesis;
     synthRef.current.onvoiceschanged = loadVoices;
+
+    // Try to load voices immediately, and also after a delay in case they're not ready
     loadVoices();
+    setTimeout(loadVoices, 1000); // Some browsers need extra time
+  };
+
+  const isProviderAvailable = (provider) => {
+    if (provider === TTSProvider.WebSpeech) return true;
+    if (provider === TTSProvider.OpenAI) return !!localStorage.getItem('OPENAI_API_KEY');
+    if (provider === TTSProvider.Google) return !!localStorage.getItem('GOOGLE_TTS_API_KEY');
+    return false;
   };
 
   const loadTtsVoices = async (provider) => {
+    if (!isProviderAvailable(provider)) {
+      console.warn(`Cannot load voices for ${provider}: API key missing`);
+      setAvailableTtsVoices([]);
+      return;
+    }
+
     try {
       const list = await listTtsVoices(provider);
       setAvailableTtsVoices(list);
@@ -126,33 +148,37 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
 
   const detectVoiceActivity = () => {
     if (!analyserRef.current) return false;
-    
+
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     analyserRef.current.getByteFrequencyData(dataArray);
-    
+
     let sum = 0;
     for (let i = 0; i < bufferLength; i++) {
       sum += dataArray[i] * dataArray[i];
     }
     const rms = Math.sqrt(sum / bufferLength);
-    
-    return rms > 15;
+
+    // Lower threshold for better barge-in sensitivity
+    return rms > 10;
   };
 
   const startVoiceActivityDetection = () => {
     const checkVAD = () => {
       if (!isMountedRef.current || !isConnected) return;
-      
+
       const hasVoice = detectVoiceActivity();
-      
-      if (hasVoice && currentSpeaker === 'ai') {
+
+      // Barge-in: interrupt AI if user speaks while AI is speaking
+      if (hasVoice && currentSpeaker === 'ai' && isAISpeaking) {
+        console.log('Barge-in detected! User interrupted AI');
         handleBargeIn();
+        return; // Don't continue VAD after barge-in
       }
-      
+
       vadRef.current = requestAnimationFrame(checkVAD);
     };
-    
+
     vadRef.current = requestAnimationFrame(checkVAD);
   };
 
@@ -164,14 +190,21 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
   };
 
   const handleBargeIn = () => {
+    console.log('Handling barge-in...');
+
+    // Cancel any ongoing TTS playback
     cancelAnyTtsPlayback();
-    setCurrentSpeaker(null);
+
+    // Reset AI speaking state
+    setIsAISpeaking(false);
+    setCurrentSpeaker('user');
+
+    // Stop processing any ongoing AI response
     setIsProcessing(false);
-    setTimeout(() => {
-      if (isMountedRef.current && isConnected && !isMuted) {
-        startListening();
-      }
-    }, 80);
+
+    // For continuous listening, we don't need to restart listening
+    // The WebSocket and MediaRecorder should already be active
+    console.log('Barge-in handled - listening for user speech');
   };
 
   const connectToDeepgram = async () => {
@@ -212,27 +245,56 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
       wsRef.current.onopen = () => {
         console.log('Connected to Deepgram');
         setIsConnected(true);
-        startListening();
+
+        // Start continuous listening for barge-in capability
+        startContinuousListening();
+
+        // Start voice activity detection for barge-in
         startVoiceActivityDetection();
+
+        // Set up keep-alive to prevent WebSocket timeout
+        if (keepAliveIntervalRef.current) {
+          clearInterval(keepAliveIntervalRef.current);
+        }
+        keepAliveIntervalRef.current = setInterval(() => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            // Send a small keep-alive packet (silence) to prevent timeout
+            const silence = new Uint8Array(128).fill(128); // 128 bytes of silence
+            wsRef.current.send(silence.buffer);
+          }
+        }, 10000); // Every 10 seconds
       };
 
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
           const transcriptText = data.channel.alternatives[0].transcript;
-          
-          if (transcriptText) {
+
+          if (transcriptText && transcriptText.trim()) {
+            // Echo cancellation: ignore transcripts when AI is speaking
+            if (isAISpeaking) {
+              console.log('Echo cancellation: Ignoring transcript while AI is speaking:', transcriptText);
+              return;
+            }
+
             setTranscript(transcriptText);
-            
+
             if (data.is_final) {
+              // Accumulate speech segments
+              const newBuffer = speechBuffer ? `${speechBuffer} ${transcriptText}` : transcriptText;
+              setSpeechBuffer(newBuffer);
+
               clearTimeout(silenceTimeoutRef.current);
+              // Use a longer timeout to allow for natural speech patterns
               silenceTimeoutRef.current = setTimeout(() => {
-                // Only handle user speech when we're not processing and the AI isn't speaking
-                if (transcriptText.trim() && !isProcessing && currentSpeaker !== 'ai') {
-                  handleUserSpeech(transcriptText.trim());
+                // Only process user speech when we're not already processing
+                if (newBuffer.trim() && !isProcessing && !isAISpeaking) {
+                  console.log('Processing complete user speech:', newBuffer.trim());
+                  handleUserSpeech(newBuffer.trim());
+                  setSpeechBuffer(''); // Clear buffer after processing
                 }
-              }, 800);
+              }, 2000); // Increased to 2 seconds for complete speech
             }
           }
         }
@@ -240,17 +302,32 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
 
       wsRef.current.onerror = (error) => {
         console.error('Deepgram WebSocket error:', error);
-        setError('Connection to speech service failed');
+        // Don't immediately set error - let onclose handle it
+        // This prevents premature error messages
       };
 
       wsRef.current.onclose = (event) => {
         console.log('Disconnected from Deepgram', event.code, event.reason);
-        // Don't automatically reconnect on close - this prevents the auto-restart issue
-        if (isMountedRef.current && event.code !== 1000) {
-          setError('Connection lost. Please restart voice mode.');
+
+        // Clear keep-alive interval
+        if (keepAliveIntervalRef.current) {
+          clearInterval(keepAliveIntervalRef.current);
+          keepAliveIntervalRef.current = null;
         }
-        setIsConnected(false);
-        setIsListening(false);
+
+        if (isMountedRef.current) {
+          setIsConnected(false);
+          setIsListening(false);
+          setIsContinuousListening(false);
+
+          // Only show error if it wasn't a clean disconnect (user initiated)
+          if (event.code !== 1000) {
+            console.warn('Unexpected WebSocket disconnect, reason:', event.reason);
+            setError('Connection lost. Please restart voice mode.');
+          } else {
+            console.log('Clean disconnect from Deepgram - user initiated');
+          }
+        }
       };
 
     } catch (error) {
@@ -259,42 +336,92 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
     }
   };
 
-  const startListening = () => {
-    if (!audioStreamRef.current || !wsRef.current || isListening || isMuted) return;
+  const startContinuousListening = () => {
+    if (!audioStreamRef.current || !wsRef.current || isContinuousListening || isMuted) {
+      if (isMuted) console.log('Not starting continuous listening: muted');
+      if (isContinuousListening) console.log('Not starting continuous listening: already active');
+      if (!audioStreamRef.current) console.log('Not starting continuous listening: no audio stream');
+      if (!wsRef.current) console.log('Not starting continuous listening: no WebSocket');
+      return;
+    }
+
+    if (wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log('WebSocket not ready for continuous listening, state:', wsRef.current.readyState);
+      return;
+    }
 
     try {
+      console.log('Starting continuous listening for barge-in...');
       mediaRecorderRef.current = new MediaRecorder(audioStreamRef.current, {
         mimeType: 'audio/webm;codecs=opus'
       });
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0 && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          // Always send audio data to Deepgram for continuous transcription
+          // Echo cancellation happens in the message handler
           event.data.arrayBuffer().then(buffer => {
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               wsRef.current.send(buffer);
             }
-          });
+          }).catch(err => console.error('Error sending audio data:', err));
         }
       };
 
       mediaRecorderRef.current.onstop = () => {
+        console.log('Continuous MediaRecorder stopped');
+        setIsContinuousListening(false);
         setIsListening(false);
       };
 
+      mediaRecorderRef.current.onerror = (event) => {
+        console.error('Continuous MediaRecorder error:', event.error);
+        // Don't stop continuous listening on errors - try to recover
+        console.log('Attempting to recover from MediaRecorder error...');
+        setTimeout(() => {
+          if (isMountedRef.current && isConnected && !isMuted) {
+            console.log('Restarting continuous listening after error...');
+            startContinuousListening();
+          }
+        }, 1000);
+      };
+
       mediaRecorderRef.current.start(100);
+      setIsContinuousListening(true);
       setIsListening(true);
-      
+      console.log('Continuous listening started successfully - barge-in enabled');
+
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      console.error('Failed to start continuous recording:', error);
       setError('Failed to start microphone');
+      setIsContinuousListening(false);
+      setIsListening(false);
     }
+  };
+
+  const startListening = () => {
+    // For backwards compatibility - start continuous listening
+    startContinuousListening();
   };
 
   const stopListening = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      console.log('Stopping MediaRecorder and continuous listening');
       mediaRecorderRef.current.stop();
     }
     setIsListening(false);
+    setIsContinuousListening(false);
+  };
+
+  const pauseListening = () => {
+    // Don't stop the MediaRecorder, just pause processing
+    // This allows for barge-in capability
+    console.log('Pausing audio processing (continuous listening remains active)');
+  };
+
+  const resumeListening = () => {
+    // Resume processing audio
+    console.log('Resuming audio processing');
   };
 
   const cancelAnyTtsPlayback = () => {
@@ -314,48 +441,167 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
     if (isSpeakerOff || !text.trim()) {
       setCurrentSpeaker(null);
       setIsProcessing(false);
-      setTimeout(() => {
-        if (isMountedRef.current && isConnected && !isMuted) {
-          startListening();
-        }
-      }, 200);
+      setIsAISpeaking(false);
+      resumeListening();
       return;
     }
 
     cancelAnyTtsPlayback();
-    // prevent mic from feeding back during TTS
-    stopListening();
+    // For continuous listening, just pause processing instead of stopping
+    if (isContinuousListening) {
+      pauseListening();
+    } else {
+      stopListening();
+    }
+
+    setIsAISpeaking(true);
+    setCurrentSpeaker('ai');
 
     if (ttsProvider === TTSProvider.WebSpeech) {
+      if (!synthRef.current) {
+        console.error('WebSpeech synthesis not available');
+        setCurrentSpeaker(null);
+        setIsProcessing(false);
+        setIsAISpeaking(false);
+        resumeListening();
+        return;
+      }
+
       const utterance = new SpeechSynthesisUtterance(text);
-      const voice = voices.find(v => v.voiceURI === (selectedTtsVoiceId || selectedVoiceURI));
+
+      // Find a suitable voice - prefer selected voice, fall back to any English voice
+      let voice = voices.find(v => v.voiceURI === (selectedTtsVoiceId || selectedVoiceURI));
+      if (!voice) {
+        voice = voices.find(v => v.lang && v.lang.startsWith('en'));
+      }
+      if (!voice && voices.length > 0) {
+        voice = voices[0]; // Last resort: use any available voice
+      }
+
       if (voice) {
         utterance.voice = voice;
+        console.log('Using WebSpeech voice:', voice.name, voice.lang);
+      } else {
+        console.warn('No suitable WebSpeech voice found');
       }
+
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
-      utterance.onstart = () => { if (isMountedRef.current) setCurrentSpeaker('ai'); };
+
+      utterance.onstart = () => {
+        if (isMountedRef.current) {
+          setCurrentSpeaker('ai');
+          console.log('Direct WebSpeech started with voice:', voice?.name);
+        }
+      };
+
       utterance.onend = () => {
         if (isMountedRef.current) {
           setCurrentSpeaker(null);
           setIsProcessing(false);
-          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+          setIsAISpeaking(false);
+          console.log('Direct WebSpeech ended, resuming continuous listening...');
+          resumeListening();
         }
       };
-      utterance.onerror = () => {
+
+      utterance.onerror = (event) => {
         if (isMountedRef.current) {
+          console.error('Direct WebSpeech error:', event.error, 'for text:', text);
           setCurrentSpeaker(null);
           setIsProcessing(false);
-          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+          setIsAISpeaking(false);
+          console.log('Direct WebSpeech error, resuming continuous listening...');
+          resumeListening();
         }
       };
-      synthRef.current.speak(utterance);
+
+      try {
+        synthRef.current.speak(utterance);
+      } catch (error) {
+        console.error('Failed to start WebSpeech:', error);
+        setCurrentSpeaker(null);
+        setIsProcessing(false);
+        setIsAISpeaking(false);
+        resumeListening();
+      }
       return;
     }
 
     try {
       const url = await getAudioURL(ttsProvider, text, selectedTtsVoiceId);
+
+      // If getAudioURL returns null, it means we should use WebSpeech
+      if (!url) {
+        if (ttsProvider !== TTSProvider.WebSpeech) {
+          console.warn(`Switching to WebSpeech because ${ttsProvider} TTS failed`);
+          setTtsProvider(TTSProvider.WebSpeech);
+          setDefaultTTSProvider(TTSProvider.WebSpeech);
+        }
+        // Use WebSpeech directly - no error needed
+        console.log('Using WebSpeech synthesis');
+
+        if (!synthRef.current) {
+          console.error('WebSpeech synthesis not available');
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voice = voices.find(v => v.voiceURI === (selectedVoiceURI));
+        if (voice) {
+          utterance.voice = voice;
+          console.log('Using voice:', voice.name, voice.lang);
+        } else {
+          console.log('No specific voice selected, using browser default');
+        }
+
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        utterance.onstart = () => {
+          if (isMountedRef.current) {
+            setCurrentSpeaker('ai');
+            console.log('Fallback WebSpeech started');
+          }
+        };
+
+        utterance.onend = () => {
+          if (isMountedRef.current) {
+            setCurrentSpeaker(null);
+            setIsProcessing(false);
+            setIsAISpeaking(false);
+            console.log('Fallback WebSpeech ended, resuming continuous listening...');
+            resumeListening();
+          }
+        };
+
+        utterance.onerror = (event) => {
+          if (isMountedRef.current) {
+            console.error('Fallback WebSpeech error:', event.error);
+            setCurrentSpeaker(null);
+            setIsProcessing(false);
+            setIsAISpeaking(false);
+            console.log('Fallback WebSpeech error, resuming continuous listening...');
+            resumeListening();
+          }
+        };
+
+        try {
+          synthRef.current.speak(utterance);
+        } catch (error) {
+          console.error('Failed to start WebSpeech:', error);
+          setCurrentSpeaker(null);
+          setIsProcessing(false);
+          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        }
+        return;
+      }
+
       const audio = new Audio(url);
       ttsAudioRef.current = audio;
       audio.onplay = () => { if (isMountedRef.current) setCurrentSpeaker('ai'); };
@@ -363,7 +609,9 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
         if (isMountedRef.current) {
           setCurrentSpeaker(null);
           setIsProcessing(false);
-          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+          setIsAISpeaking(false);
+          console.log('External TTS ended, resuming continuous listening...');
+          resumeListening();
         }
         try { URL.revokeObjectURL(url); } catch {}
       };
@@ -371,16 +619,64 @@ export default function VoiceMode({ onClose, currentModel, currentProvider, curr
         if (isMountedRef.current) {
           setCurrentSpeaker(null);
           setIsProcessing(false);
-          setTimeout(() => { if (!isMuted) startListening(); }, 150);
+          setIsAISpeaking(false);
+          console.log('External TTS error, resuming continuous listening...');
+          resumeListening();
         }
       };
       await audio.play();
     } catch (e) {
-      console.error('TTS playback failed:', e);
+      console.error('TTS playback failed:', e.message);
+
+      // Fallback to WebSpeech if not already using it
+      if (ttsProvider !== TTSProvider.WebSpeech) {
+        console.warn('Attempting fallback to WebSpeech synthesis...');
+        try {
+          const utterance = new SpeechSynthesisUtterance(text);
+          const voice = voices.find(v => v.voiceURI === (selectedVoiceURI));
+          if (voice) {
+            utterance.voice = voice;
+          }
+          utterance.rate = 0.9;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+          utterance.onstart = () => {
+            if (isMountedRef.current) {
+              setCurrentSpeaker('ai');
+              console.log('Final fallback WebSpeech started');
+            }
+          };
+          utterance.onend = () => {
+            if (isMountedRef.current) {
+              setCurrentSpeaker(null);
+              setIsProcessing(false);
+              setIsAISpeaking(false);
+              console.log('Final fallback WebSpeech ended, resuming continuous listening...');
+              resumeListening();
+            }
+          };
+          utterance.onerror = () => {
+            if (isMountedRef.current) {
+              setCurrentSpeaker(null);
+              setIsProcessing(false);
+              setIsAISpeaking(false);
+              console.log('Final fallback WebSpeech error, resuming continuous listening...');
+              resumeListening();
+            }
+          };
+          synthRef.current.speak(utterance);
+          return;
+        } catch (fallbackError) {
+          console.error('WebSpeech fallback also failed:', fallbackError);
+        }
+      }
+
       if (isMountedRef.current) {
         setCurrentSpeaker(null);
         setIsProcessing(false);
-        setTimeout(() => { if (!isMuted) startListening(); }, 150);
+        setIsAISpeaking(false);
+        console.log('TTS failed completely, resuming continuous listening...');
+        resumeListening();
       }
     }
   };
@@ -454,38 +750,46 @@ Respond helpfully and naturally:`;
   };
   
   const handleDisconnect = () => {
+    console.log('User initiated disconnect - cleaning up all connections');
     cleanup();
-    
+
     if (fullTranscript.length > 0 && onTranscriptSave) {
       onTranscriptSave(fullTranscript);
     }
-    
+
     setIsConnected(false);
     setCurrentSpeaker(null);
     setIsProcessing(false);
     setTranscript("");
     setFullTranscript([]);
+    setSpeechBuffer('');
   };
 
   const cleanup = () => {
     stopVoiceActivityDetection();
-    clearInterval(keepAliveIntervalRef.current); // Ensure keep-alive is cleared on cleanup
+
+    // Clear keep-alive interval
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
+    }
+
     clearTimeout(silenceTimeoutRef.current);
-    
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.close(1000, 'User disconnected'); // Clean close
       wsRef.current = null;
     }
-    
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
-    
+
     if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach(track => track.stop());
       audioStreamRef.current = null;
     }
-    
+
     if (synthRef.current) {
       synthRef.current.cancel();
     }
@@ -493,13 +797,16 @@ Respond helpfully and naturally:`;
       try { ttsAudioRef.current.pause(); ttsAudioRef.current.src = ''; } catch {}
       ttsAudioRef.current = null;
     }
-    
+
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-    
+
     setIsListening(false);
+    setIsContinuousListening(false);
+    setIsAISpeaking(false);
+    setSpeechBuffer('');
   };
 
   const downloadTranscript = () => {
@@ -567,16 +874,49 @@ Respond helpfully and naturally:`;
 
         <div className="space-y-2">
           <Label className="text-white/70">TTS Provider</Label>
-          <Select value={ttsProvider} onValueChange={(val) => { setTtsProvider(val); setDefaultTTSProvider(val); }}>
+          <Select value={ttsProvider} onValueChange={(val) => {
+            if (isProviderAvailable(val)) {
+              setTtsProvider(val);
+              setDefaultTTSProvider(val);
+            }
+          }}>
             <SelectTrigger className="w-full bg-white/5 border-white/10 text-white/92">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-slate-900/95 backdrop-blur-xl border border-white/20">
-              <SelectItem value={TTSProvider.WebSpeech} className="text-white/90 focus:bg-white/10">Browser (Web Speech)</SelectItem>
-              <SelectItem value={TTSProvider.OpenAI} className="text-white/90 focus:bg-white/10">OpenAI</SelectItem>
-              <SelectItem value={TTSProvider.Google} className="text-white/90 focus:bg-white/10">Google</SelectItem>
+              <SelectItem value={TTSProvider.WebSpeech} className="text-white/90 focus:bg-white/10">
+                <div className="flex items-center justify-between w-full">
+                  <span>Browser (Web Speech)</span>
+                  <Badge variant="outline" className="border-green-400/50 text-green-300 text-xs">✓ Available</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value={TTSProvider.OpenAI} className={`text-white/90 focus:bg-white/10 ${!isProviderAvailable(TTSProvider.OpenAI) ? 'opacity-50' : ''}`}>
+                <div className="flex items-center justify-between w-full">
+                  <span>OpenAI</span>
+                  {isProviderAvailable(TTSProvider.OpenAI) ? (
+                    <Badge variant="outline" className="border-green-400/50 text-green-300 text-xs">✓ Available</Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-red-400/50 text-red-300 text-xs">API Key Needed</Badge>
+                  )}
+                </div>
+              </SelectItem>
+              <SelectItem value={TTSProvider.Google} className={`text-white/90 focus:bg-white/10 ${!isProviderAvailable(TTSProvider.Google) ? 'opacity-50' : ''}`}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Google</span>
+                  {isProviderAvailable(TTSProvider.Google) ? (
+                    <Badge variant="outline" className="border-green-400/50 text-green-300 text-xs">✓ Available</Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-red-400/50 text-red-300 text-xs">API Key Needed</Badge>
+                  )}
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
+          {!isProviderAvailable(ttsProvider) && (
+            <p className="text-xs text-red-400 mt-1">
+              Selected provider requires an API key. Go to Settings → API Keys to configure.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -621,26 +961,34 @@ Respond helpfully and naturally:`;
       )}
 
       {/* Connection Status */}
-      <div className="text-center">
-        <div className={`
-          w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 transition-all duration-300
-          ${isConnected 
-            ? currentSpeaker === 'user'
-              ? 'bg-gradient-to-br from-cyan-400 to-violet-500 animate-pulse scale-110'
-              : currentSpeaker === 'ai'
-                ? 'bg-gradient-to-br from-violet-500 to-purple-600 animate-pulse scale-110'
-                : currentSpeaker === 'thinking'
-                  ? 'bg-gradient-to-br from-orange-400 to-red-500 animate-pulse scale-110'
-                  : 'bg-gradient-to-br from-emerald-400 to-green-500'
-            : 'bg-white/10 border-2 border-white/20'
-          }
-        `}>
-          {isConnected ? (
-            <Radio className="w-8 h-8 text-white" />
-          ) : (
-            <Phone className="w-8 h-8 text-white/60" />
-          )}
-        </div>
+              <div className="text-center">
+          <div className={`
+            w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 transition-all duration-300 relative
+            ${isConnected
+              ? currentSpeaker === 'user'
+                ? 'bg-gradient-to-br from-cyan-400 to-violet-500 animate-pulse scale-110'
+                : currentSpeaker === 'ai'
+                  ? 'bg-gradient-to-br from-violet-500 to-purple-600 animate-pulse scale-110'
+                  : currentSpeaker === 'thinking'
+                    ? 'bg-gradient-to-br from-orange-400 to-red-500 animate-pulse scale-110'
+                    : isContinuousListening
+                      ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-lg shadow-emerald-400/30'
+                      : 'bg-gradient-to-br from-emerald-400 to-green-500'
+              : 'bg-white/10 border-2 border-white/20'
+            }
+          `}>
+            {isConnected ? (
+              <Radio className="w-8 h-8 text-white" />
+            ) : (
+              <Phone className="w-8 h-8 text-white/60" />
+            )}
+            {/* Continuous listening indicator */}
+            {isContinuousListening && !currentSpeaker && (
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-slate-900">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              </div>
+            )}
+          </div>
 
         <div className="space-y-1">
           <p className="text-lg font-semibold text-white/92">
@@ -650,6 +998,11 @@ Respond helpfully and naturally:`;
             <Badge variant="outline" className="border-white/20 text-white/72">
               Deepgram Live
             </Badge>
+            {isContinuousListening && (
+              <Badge variant="outline" className="border-emerald-400/20 text-emerald-300">
+                Barge-in Active
+              </Badge>
+            )}
             {aecEnabled && (
               <Badge variant="outline" className="border-green-400/20 text-green-300">
                 AEC Active

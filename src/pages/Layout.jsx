@@ -72,8 +72,8 @@ export default function Layout({ children, currentPageName }) {
       <div className={cn("p-6 border-b border-white/10 flex flex-col", isCollapsed ? "p-3 items-center" : "")}> 
         <div className="flex items-center justify-between w-full mb-4">
           <Link to={createPageUrl("Chat")} className={cn("flex items-center space-x-3", isCollapsed && "hidden")}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-zinc-50" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-slate-100" />
             </div>
             <div className={cn("transition-opacity duration-200", isCollapsed && "opacity-0 w-0")}>
               <h1 className="text-lg font-semibold text-white/95 whitespace-nowrap brand-strangeai-title">strangeAi</h1>
@@ -115,7 +115,7 @@ export default function Layout({ children, currentPageName }) {
         {/* Main Actions */}
         <div className="px-4 mb-6">
           <Link to={createPageUrl("Chat")}>
-            <Button className={cn("w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium", isCollapsed && "w-12 h-12 p-0 justify-center")}> 
+            <Button className={cn("w-full bg-slate-700 hover:bg-slate-600 text-white font-medium", isCollapsed && "w-12 h-12 p-0 justify-center")}> 
               <Plus className={cn("w-5 h-5", !isCollapsed && "mr-2")} />
               <span className={cn(isCollapsed && "sr-only")}>New Chat</span>
             </Button>
@@ -176,11 +176,11 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background gradient blooms */}
+      {/* Subtle background accents */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 right-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-slate-400/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-slate-300/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 right-0 w-72 h-72 bg-slate-400/5 rounded-full blur-3xl" />
       </div>
 
       <div className="flex h-screen relative">

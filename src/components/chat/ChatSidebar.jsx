@@ -90,7 +90,7 @@ export default function ChatSidebar({
             onClick={onNewChat}
             disabled={!selectedProject}
             className={cn(
-              "w-full bg-indigo-600 hover:bg-indigo-500 text-white",
+              "w-full bg-slate-700 hover:bg-slate-600 text-white",
               isCollapsed && "w-10 h-10 p-0 justify-center"
             )}
           >

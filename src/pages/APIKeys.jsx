@@ -120,6 +120,18 @@ export default function APIKeysPage() {
                   placeholder="AIza..."
                   className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
                 />
+                <p className="text-xs text-zinc-500 mt-1">
+                  Get your key from{' '}
+                  <a
+                    href="https://console.cloud.google.com/apis/credentials"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 hover:text-indigo-300"
+                  >
+                    Google Cloud Console
+                  </a>
+                  {' '}→ Enable Text-to-Speech API → Create API Key
+                </p>
               </div>
               <div>
                 <label className="text-sm text-zinc-400">Default TTS Provider</label>
@@ -152,9 +164,20 @@ export default function APIKeysPage() {
             {saved && <span className="text-green-300 text-sm">Saved</span>}
           </div>
 
-          <p className="text-xs text-zinc-500">
-            Keys are stored locally in your browser via localStorage. Do not use production keys in this demo.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-zinc-500">
+              Keys are stored locally in your browser via localStorage. Do not use production keys in this demo.
+            </p>
+            <div className="bg-blue-500/10 border border-blue-400/20 rounded p-3">
+              <h4 className="text-blue-300 text-sm font-medium mb-1">💡 TTS Tips</h4>
+              <ul className="text-xs text-blue-200 space-y-1">
+                <li>• <strong>WebSpeech (Browser)</strong>: Works without API keys, but quality varies by browser</li>
+                <li>• <strong>OpenAI TTS</strong>: High quality, requires OpenAI API key</li>
+                <li>• <strong>Google TTS</strong>: Good quality, requires Google Cloud API key</li>
+                <li>• Voice mode will automatically fall back to WebSpeech if API keys are missing</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

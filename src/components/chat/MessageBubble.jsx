@@ -27,7 +27,7 @@ export default function MessageBubble({ message }) {
         <div className={`flex-shrink-0 ${isUser ? 'ml-3' : 'mr-3'}`}>
           <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
             isUser 
-              ? 'bg-indigo-600' 
+              ? 'bg-slate-700' 
               : isError
                 ? 'bg-red-600'
                 : 'bg-white/10 border border-white/10'
@@ -48,7 +48,7 @@ export default function MessageBubble({ message }) {
           <div className={`
             rounded-2xl px-4 py-3 backdrop-blur-sm
             ${isUser 
-              ? 'bg-indigo-600/20 border border-indigo-500/30' 
+              ? 'bg-slate-700/20 border border-slate-600/30' 
               : isError
                 ? 'bg-red-600/15 border border-red-500/30'
                 : 'bg-card/60 border border-white/10'
@@ -65,7 +65,7 @@ export default function MessageBubble({ message }) {
                   components={{
                     code: ({ inline, className, children, ...props }) => {
                       return inline ? (
-                        <code className="px-1.5 py-0.5 rounded bg-white/10 text-indigo-300 text-sm font-mono">
+                        <code className="px-1.5 py-0.5 rounded bg-white/10 text-slate-300 text-sm font-mono">
                           {children}
                         </code>
                       ) : (
@@ -82,7 +82,7 @@ export default function MessageBubble({ message }) {
                     h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-white">{children}</h2>,
                     h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 text-white">{children}</h3>,
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-2 border-indigo-500/50 pl-3 my-2 text-white/80">
+                      <blockquote className="border-l-2 border-slate-600/50 pl-3 my-2 text-white/80">
                         {children}
                       </blockquote>
                     ),

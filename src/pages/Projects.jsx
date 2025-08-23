@@ -72,7 +72,7 @@ export default function ProjectsPage() {
           </div>
           <Button
             onClick={() => setShowCreateModal(true)}
-            className="bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600"
+            className="bg-slate-700 hover:bg-slate-600"
           >
             <Plus className="w-4 h-4 mr-2" />
             New Project
@@ -91,7 +91,7 @@ export default function ProjectsPage() {
             </p>
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600"
+              className="bg-slate-700 hover:bg-slate-600"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create First Project

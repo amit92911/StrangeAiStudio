@@ -72,7 +72,7 @@ export default function PromptEditorModal({ prompt, onClose, onSave }) {
           </div>
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose} className="text-zinc-400">Cancel</Button>
-            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-500">Save Prompt</Button>
+            <Button type="submit" className="bg-slate-700 hover:bg-slate-600">Save Prompt</Button>
           </DialogFooter>
         </form>
       </DialogContent>

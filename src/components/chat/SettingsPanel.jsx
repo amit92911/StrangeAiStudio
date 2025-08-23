@@ -190,7 +190,7 @@ export default function SettingsPanel({
       />
       
       {/* Settings Panel */}
-      <div className="w-80 bg-card/60 backdrop-blur-xl border-l border-white/10 flex flex-col relative z-50">
+      <div className="w-80 sm:w-96 lg:w-80 xl:w-96 bg-card/60 backdrop-blur-xl border-l border-white/10 flex flex-col relative z-50 max-w-[90vw]">
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
@@ -284,14 +284,14 @@ export default function SettingsPanel({
                   <div className="text-center">
                     <div className={`
                       w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 transition-all duration-300
-                      ${currentSpeaker === 'user'
-                        ? 'bg-gradient-to-br from-cyan-400 to-violet-500 animate-pulse scale-110'
-                        : currentSpeaker === 'ai'
-                          ? 'bg-gradient-to-br from-violet-500 to-purple-600 animate-pulse scale-110'
-                          : currentSpeaker === 'thinking'
-                            ? 'bg-gradient-to-br from-orange-400 to-red-500 animate-pulse scale-110'
-                            : 'bg-gradient-to-br from-emerald-400 to-green-500'
-                      }
+                                             ${currentSpeaker === 'user'
+                         ? 'bg-gradient-to-br from-slate-600 to-slate-700 animate-pulse scale-110'
+                         : currentSpeaker === 'ai'
+                           ? 'bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse scale-110'
+                           : currentSpeaker === 'thinking'
+                             ? 'bg-gradient-to-br from-orange-600 to-red-600 animate-pulse scale-110'
+                             : 'bg-gradient-to-br from-slate-600 to-slate-700'
+                       }
                     `}>
                       <Radio className="w-6 h-6 text-white" />
                     </div>
@@ -304,11 +304,11 @@ export default function SettingsPanel({
 
               {/* Voice Controls */}
               <div className="flex items-center justify-center space-x-2">
-                {!isConnected ? (
-                  <Button
-                    className="bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white"
-                    size="sm"
-                  >
+                                 {!isConnected ? (
+                   <Button
+                     className="bg-slate-700 hover:bg-slate-600 text-white"
+                     size="sm"
+                   >
                     <Phone className="w-4 h-4 mr-2" />
                     Start Voice Mode
                   </Button>
@@ -396,3 +396,4 @@ export default function SettingsPanel({
     </>
   );
 }
+

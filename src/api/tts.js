@@ -134,8 +134,18 @@ export async function listVoices(provider) {
 }
 
 export async function getAudioURL(provider, text, voiceId) {
-  if (provider === TTSProvider.OpenAI) return synthesizeOpenAI(text, voiceId);
-  if (provider === TTSProvider.Google) return synthesizeGoogle(text, voiceId);
+  try {
+    if (provider === TTSProvider.OpenAI) {
+      return await synthesizeOpenAI(text, voiceId);
+    }
+    if (provider === TTSProvider.Google) {
+      return await synthesizeGoogle(text, voiceId);
+    }
+  } catch (error) {
+    console.warn(`TTS provider ${provider} failed:`, error.message);
+    console.warn('Falling back to WebSpeech API...');
+  }
+
   // WebSpeech does not return URL; handled directly by speechSynthesis
   return null;
 }
