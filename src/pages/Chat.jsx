@@ -1,73 +1,27 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Chat as ChatEntity, Message, Project } from "@/api/entities";
 import { InvokeLLM } from "@/api/integrations";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Send,
-  Mic,
   Square,
   Settings,
   Paperclip,
   Sparkles,
-  Phone,
-  PhoneOff,
-  Volume2,
-  VolumeX,
   MessageSquare,
-  Plus
+  Plus,
+  Phone
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
 import MessageBubble from "../components/chat/MessageBubble";
 import ModelSelector from "../components/chat/ModelSelector";
-import VoiceMode from "../components/chat/VoiceMode";
 import ChatSettings from "../components/chat/ChatSettings";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import SettingsPanel from "../components/chat/SettingsPanel";
-
-// Audio Wave Animation Component
-const AudioWave = ({ isActive }) => {
-  const [waveBars, setWaveBars] = useState([0.2, 0.4, 0.6, 0.8, 1.0, 0.8, 0.6, 0.4, 0.2]);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      setWaveBars(prev => {
-        // Create a wave-like animation
-        return prev.map((height, index) => {
-          const base = 0.2;
-          const amplitude = 0.8;
-          const frequency = 0.5;
-          const phase = Date.now() * 0.001 * frequency;
-          const wave = Math.sin(phase + index * 0.5) * amplitude + base;
-          return Math.max(0.1, Math.min(1.0, wave));
-        });
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isActive]);
-
-  return (
-    <div className="flex items-end justify-center space-x-1 h-8">
-      {waveBars.map((height, index) => (
-        <div
-          key={index}
-          className="w-1 bg-gradient-to-t from-emerald-400 to-emerald-300 rounded-full transition-all duration-100"
-          style={{
-            height: `${height * 32}px`,
-            opacity: isActive ? 0.8 + height * 0.2 : 0.3
-          }}
-        />
-      ))}
-    </div>
-  );
-};
+import VoiceMode from "../components/chat/VoiceMode";
 
 const providers = [
   { id: 'openai', name: 'OpenAI', models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
@@ -84,7 +38,6 @@ export default function ChatPage() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [showVoiceMode, setShowVoiceMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4");
   const [selectedProvider, setSelectedProvider] = useState("openai");
@@ -93,12 +46,16 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-
-  // Voice call integration state
-  const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
-  const [voiceCallTranscript, setVoiceCallTranscript] = useState([]);
-  const [isVoiceCallMuted, setIsVoiceCallMuted] = useState(false);
-  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isVoiceModeOpen, setIsVoiceModeOpen] = useState(false);
+  const [voiceTranscripts, setVoiceTranscripts] = useState([]);
+  const [voiceSettings, setVoiceSettings] = useState({
+    voice: "alloy",
+    model: "gpt-4o-realtime-preview",
+    temperature: 0.8,
+    vadThreshold: 0.5,
+    silenceDuration: 200,
+    instructions: "You are a helpful, witty, and friendly AI assistant. Keep your responses concise and conversational."
+  });
 
   useEffect(() => {
     loadData();
@@ -280,44 +237,32 @@ export default function ChatPage() {
     }
   };
 
-  // Voice call functions
-  const startVoiceCall = () => {
-    setIsVoiceCallActive(true);
-    setVoiceCallTranscript([]);
-    // In a real implementation, this would initialize the voice call
-    console.log('Starting voice call...');
-  };
-
-  const endVoiceCall = () => {
-    setIsVoiceCallActive(false);
-    setIsUserSpeaking(false);
-    setVoiceCallTranscript([]);
-    console.log('Ending voice call...');
-  };
-
-  const toggleVoiceMute = () => {
-    setIsVoiceCallMuted(!isVoiceCallMuted);
-    console.log(`Voice call ${!isVoiceCallMuted ? 'muted' : 'unmuted'}`);
-  };
-
-  const handleVoiceTranscript = (transcriptEntries) => {
-    setVoiceCallTranscript(transcriptEntries);
-    // Save voice transcripts to messages
-    if (currentChat && transcriptEntries.length > 0) {
-      const formattedTranscript = transcriptEntries.map(entry =>
-        `*${entry.speaker}*: ${entry.text}`
-      ).join('\n');
-
-      // Add as a system message for voice conversation
-      Message.create({
-        chat_id: currentChat.id,
-        role: "system",
-        content: formattedTranscript,
-        isVoiceTranscript: true
-      }).then(() => {
-        loadMessages(currentChat.id);
-      });
+  const handleVoiceTranscription = (role, transcript) => {
+    // Add voice transcription to messages
+    const voiceMessage = {
+      id: Date.now(),
+      chat_id: currentChat?.id,
+      role: role,
+      content: transcript,
+      created_date: new Date().toISOString(),
+      isVoice: true
+    };
+    
+    setMessages(prev => [...prev, voiceMessage]);
+    
+    // Save to database if chat exists
+    if (currentChat?.id) {
+      Message.create(voiceMessage);
     }
+  };
+
+  const toggleVoiceMode = () => {
+    const openaiKey = localStorage.getItem('OPENAI_API_KEY');
+    if (!openaiKey) {
+      alert("Please set your OpenAI API key in the API Keys page first.");
+      return;
+    }
+    setIsVoiceModeOpen(!isVoiceModeOpen);
   };
 
   return (
@@ -385,15 +330,6 @@ export default function ChatPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className={`text-white/60 hover:text-white hover:bg-white/10 ${isVoiceCallActive ? 'text-emerald-400' : ''}`}
-                onClick={isVoiceCallActive ? endVoiceCall : startVoiceCall}
-              >
-                {isVoiceCallActive ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
                 className="text-white/60 hover:text-white hover:bg-white/10"
                 onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
               >
@@ -435,34 +371,30 @@ export default function ChatPage() {
                   Start a conversation
                 </h3>
                 <p className="text-white/60">
-                  Ask anything or try voice mode for a natural conversation
+                  Ask anything to get started
                 </p>
               </div>
             ) : (
-              messages.map((message, index) => (
-                <div key={index}>
-                  {message.isVoiceTranscript ? (
-                    // Voice transcript formatting
-                    <div className="flex justify-center mb-4">
-                      <div className="bg-gradient-to-r from-emerald-500/10 to-violet-500/10 border border-emerald-400/20 rounded-lg px-4 py-2 max-w-md">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-                          <span className="text-xs font-medium text-emerald-400">Voice Call</span>
+              <>
+                {messages.map((message, index) => {
+                  // Check if this is the first voice message to add separator
+                  const isFirstVoiceMessage = message.isVoice && 
+                    (index === 0 || !messages[index - 1].isVoice);
+                  
+                  return (
+                    <React.Fragment key={index}>
+                      {isFirstVoiceMessage && (
+                        <div className="flex items-center space-x-4 my-6">
+                          <div className="flex-1 h-px bg-white/10" />
+                          <span className="text-xs text-white/50 uppercase tracking-wider">Voice Chat</span>
+                          <div className="flex-1 h-px bg-white/10" />
                         </div>
-                        <div className="text-sm text-white/80 italic font-light leading-relaxed">
-                          {message.content.split('\n').map((line, i) => (
-                            <div key={i} className="mb-1">
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <MessageBubble message={message} />
-                  )}
-                </div>
-              ))
+                      )}
+                      <MessageBubble message={message} />
+                    </React.Fragment>
+                  );
+                })}
+              </>
             )}
 
             {isStreaming && (
@@ -485,89 +417,43 @@ export default function ChatPage() {
         {currentChat && (
           <div className="bg-card/60 backdrop-blur-xl border-t border-white/10 p-4">
             <div className="max-w-4xl mx-auto">
-              {isVoiceCallActive ? (
-                // Voice Call Interface
-                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
-                        <span className="text-white/90 font-medium">Voice Call Active</span>
-                      </div>
-                      <Badge variant="outline" className="border-emerald-400/20 text-emerald-300">
-                        Barge-in Active
-                      </Badge>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleVoiceMute}
-                        className={`${isVoiceCallMuted ? 'text-red-400' : 'text-white/60'} hover:text-white hover:bg-white/10`}
-                      >
-                        {isVoiceCallMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        onClick={endVoiceCall}
-                        variant="destructive"
-                        size="icon"
-                        className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-400/30"
-                      >
-                        <PhoneOff className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Live Transcript Display */}
-                  {voiceCallTranscript.length > 0 && (
-                    <div className="bg-white/5 rounded-lg p-3 mb-4">
-                      <div className="text-xs text-white/60 mb-2">Live Transcript</div>
-                      <div className="space-y-1">
-                        {voiceCallTranscript.slice(-3).map((entry, index) => (
-                          <div key={index} className="text-sm">
-                            <span className={`font-medium ${entry.speaker === 'User' ? 'text-emerald-400' : 'text-violet-400'}`}>
-                              {entry.speaker}:
-                            </span>
-                            <span className="text-white/80 ml-2 italic font-light">{entry.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Audio Wave Visualization */}
-                  <div className="flex justify-center">
-                    <AudioWave isActive={isUserSpeaking} />
-                  </div>
-                </div>
+              {/* Voice Mode Interface */}
+              {isVoiceModeOpen ? (
+                <VoiceMode
+                  isOpen={isVoiceModeOpen}
+                  onClose={() => setIsVoiceModeOpen(false)}
+                  onTranscriptionUpdate={handleVoiceTranscription}
+                  apiKey={localStorage.getItem('OPENAI_API_KEY')}
+                  voiceSettings={voiceSettings}
+                />
               ) : (
-                // Regular Text Input
                 <div className="relative">
                   <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message... (Shift+Enter for new line)"
-                    className="min-h-[60px] max-h-[200px] pr-32 text-zinc-200 placeholder:text-white/40 focus:border-indigo-500/50 focus:ring-indigo-500/20 resize-none"
-                  />
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message... (Shift+Enter for new line)"
+                  className="min-h-[60px] max-h-[200px] pr-24 text-zinc-200 placeholder:text-white/40 focus:border-indigo-500/50 focus:ring-indigo-500/20 resize-none"
+                />
 
                   <div className="absolute right-2 bottom-2 flex items-center space-x-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-white/60 hover:text-white hover:bg-white/10"
+                      onClick={toggleVoiceMode}
+                      title="Start voice chat"
                     >
-                      <Paperclip className="w-4 h-4" />
+                      <Phone className="w-4 h-4" />
                     </Button>
-
+                    
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={startVoiceCall}
-                      className="text-white/60 hover:text-emerald-400 hover:bg-emerald-400/10"
+                      className="text-white/60 hover:text-white hover:bg-white/10"
                     >
-                      <Phone className="w-4 h-4" />
+                      <Paperclip className="w-4 h-4" />
                     </Button>
 
                     <Button
@@ -590,25 +476,9 @@ export default function ChatPage() {
         isOpen={isSettingsPanelOpen}
         onClose={() => setIsSettingsPanelOpen(false)}
         currentChat={currentChat}
-        selectedModel={selectedModel}
-        selectedProvider={selectedProvider}
-        onTranscriptSave={async (transcriptEntries) => {
-          if (currentChat && transcriptEntries.length > 0) {
-            const formattedTranscript = transcriptEntries.map(entry => 
-              `**${entry.speaker}**: ${entry.text}`
-            ).join('\n\n');
-
-            await Message.create({
-              chat_id: currentChat.id,
-              role: "system",
-              content: `### Voice Conversation Transcript\n\n${formattedTranscript}`
-            });
-            await loadMessages(currentChat.id);
-          }
-        }}
+        voiceSettings={voiceSettings}
+        setVoiceSettings={setVoiceSettings}
       />
-
-
 
       {/* Settings Modal */}
       {showSettings && (

@@ -3,31 +3,16 @@ import React, { useEffect, useState } from 'react';
 export default function APIKeysPage() {
   const [openaiKey, setOpenaiKey] = useState('');
   const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini');
-  const [deepgramKey, setDeepgramKey] = useState('');
-  const [deepgramWsUrl, setDeepgramWsUrl] = useState('wss://api.deepgram.com/v1/listen');
-  const [googleTtsKey, setGoogleTtsKey] = useState('');
-  const [ttsProvider, setTtsProvider] = useState('webspeech');
-  const [ttsVoice, setTtsVoice] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setOpenaiKey(localStorage.getItem('OPENAI_API_KEY') || '');
     setOpenaiModel(localStorage.getItem('OPENAI_MODEL') || 'gpt-4o-mini');
-    setDeepgramKey(localStorage.getItem('DEEPGRAM_API_KEY') || '');
-    setDeepgramWsUrl(localStorage.getItem('DEEPGRAM_WS_URL') || 'wss://api.deepgram.com/v1/listen');
-    setGoogleTtsKey(localStorage.getItem('GOOGLE_TTS_API_KEY') || '');
-    setTtsProvider(localStorage.getItem('TTS_PROVIDER') || 'webspeech');
-    setTtsVoice(localStorage.getItem('TTS_VOICE') || '');
   }, []);
 
   const save = () => {
     localStorage.setItem('OPENAI_API_KEY', openaiKey.trim());
     localStorage.setItem('OPENAI_MODEL', openaiModel.trim());
-    localStorage.setItem('DEEPGRAM_API_KEY', deepgramKey.trim());
-    localStorage.setItem('DEEPGRAM_WS_URL', deepgramWsUrl.trim());
-    localStorage.setItem('GOOGLE_TTS_API_KEY', googleTtsKey.trim());
-    localStorage.setItem('TTS_PROVIDER', ttsProvider.trim());
-    localStorage.setItem('TTS_VOICE', ttsVoice.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 1200);
   };
@@ -35,18 +20,8 @@ export default function APIKeysPage() {
   const clearAll = () => {
     localStorage.removeItem('OPENAI_API_KEY');
     localStorage.removeItem('OPENAI_MODEL');
-    localStorage.removeItem('DEEPGRAM_API_KEY');
-    localStorage.removeItem('DEEPGRAM_WS_URL');
-    localStorage.removeItem('GOOGLE_TTS_API_KEY');
-    localStorage.removeItem('TTS_PROVIDER');
-    localStorage.removeItem('TTS_VOICE');
     setOpenaiKey('');
     setOpenaiModel('gpt-4o-mini');
-    setDeepgramKey('');
-    setDeepgramWsUrl('wss://api.deepgram.com/v1/listen');
-    setGoogleTtsKey('');
-    setTtsProvider('webspeech');
-    setTtsVoice('');
   };
 
   return (
@@ -82,82 +57,6 @@ export default function APIKeysPage() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-4">
-            <h2 className="text-zinc-200 font-semibold mb-3">Deepgram (for Voice Mode, optional)</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-zinc-400">API Key</label>
-                <input
-                  type="password"
-                  value={deepgramKey}
-                  onChange={(e) => setDeepgramKey(e.target.value)}
-                  placeholder="dg-..."
-                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-zinc-400">WebSocket URL</label>
-                <input
-                  type="text"
-                  value={deepgramWsUrl}
-                  onChange={(e) => setDeepgramWsUrl(e.target.value)}
-                  placeholder="wss://api.deepgram.com/v1/listen"
-                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-4">
-            <h2 className="text-zinc-200 font-semibold mb-3">TTS Settings</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-zinc-400">Google TTS API Key</label>
-                <input
-                  type="password"
-                  value={googleTtsKey}
-                  onChange={(e) => setGoogleTtsKey(e.target.value)}
-                  placeholder="AIza..."
-                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
-                />
-                <p className="text-xs text-zinc-500 mt-1">
-                  Get your key from{' '}
-                  <a
-                    href="https://console.cloud.google.com/apis/credentials"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    Google Cloud Console
-                  </a>
-                  {' '}→ Enable Text-to-Speech API → Create API Key
-                </p>
-              </div>
-              <div>
-                <label className="text-sm text-zinc-400">Default TTS Provider</label>
-                <select
-                  value={ttsProvider}
-                  onChange={(e) => setTtsProvider(e.target.value)}
-                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
-                >
-                  <option value="webspeech">Browser (Web Speech)</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="google">Google</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-zinc-400">Default TTS Voice (id)</label>
-                <input
-                  type="text"
-                  value={ttsVoice}
-                  onChange={(e) => setTtsVoice(e.target.value)}
-                  placeholder="e.g., alloy or en-US-Neural2-C"
-                  className="mt-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded px-3 py-2"
-                />
-              </div>
-            </div>
-          </div>
-
           <div className="flex items-center gap-3">
             <button onClick={save} className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-500">Save</button>
             <button onClick={clearAll} className="px-4 py-2 rounded bg-zinc-800 text-zinc-200 hover:bg-zinc-700">Clear</button>
@@ -168,15 +67,6 @@ export default function APIKeysPage() {
             <p className="text-xs text-zinc-500">
               Keys are stored locally in your browser via localStorage. Do not use production keys in this demo.
             </p>
-            <div className="bg-blue-500/10 border border-blue-400/20 rounded p-3">
-              <h4 className="text-blue-300 text-sm font-medium mb-1">💡 TTS Tips</h4>
-              <ul className="text-xs text-blue-200 space-y-1">
-                <li>• <strong>WebSpeech (Browser)</strong>: Works without API keys, but quality varies by browser</li>
-                <li>• <strong>OpenAI TTS</strong>: High quality, requires OpenAI API key</li>
-                <li>• <strong>Google TTS</strong>: Good quality, requires Google Cloud API key</li>
-                <li>• Voice mode will automatically fall back to WebSpeech if API keys are missing</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>

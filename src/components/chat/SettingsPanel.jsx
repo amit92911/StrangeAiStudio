@@ -1,66 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { InvokeLLM } from "@/api/integrations";
-import { Message } from "@/api/entities";
-import { deepgramVoice } from "@/api/functions";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  TTSProvider,
-  listVoices as listTtsVoices,
-  getAudioURL,
-  getDefaultTTSProvider,
-  setDefaultTTSProvider,
-  getDefaultTTSVoice,
-  setDefaultTTSVoice
-} from "@/api/tts";
-import { 
-  Phone, 
-  PhoneOff, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX,
-  Radio,
-  Download,
-  Settings,
-  X,
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react";
+import { X, Mic } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function SettingsPanel({ 
   isOpen, 
   onClose, 
-  currentChat, 
-  selectedModel, 
-  selectedProvider,
-  onTranscriptSave 
+  currentChat,
+  voiceSettings,
+  setVoiceSettings
 }) {
-  // Voice mode states
-  const [isConnected, setIsConnected] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOff, setIsSpeakerOff] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [fullTranscript, setFullTranscript] = useState([]);
-  const [currentSpeaker, setCurrentSpeaker] = useState(null);
-  const [voices, setVoices] = useState([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState(null);
-  const [ttsProvider, setTtsProvider] = useState(getDefaultTTSProvider());
-  const [availableTtsVoices, setAvailableTtsVoices] = useState([]);
-  const [selectedTtsVoiceId, setSelectedTtsVoiceId] = useState(getDefaultTTSVoice() || null);
-  const [aecEnabled, setAecEnabled] = useState(false);
-  const [error, setError] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-
   // Chat settings states
   const [temperature, setTemperature] = useState(currentChat?.temperature || 0.7);
   const [maxTokens, setMaxTokens] = useState(currentChat?.max_tokens || 2048);
@@ -69,114 +24,20 @@ export default function SettingsPanel({
   const [enableMemory, setEnableMemory] = useState(true);
   const [autoRename, setAutoRename] = useState(true);
   
-  const wsRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioStreamRef = useRef(null);
-  const synthRef = useRef(null);
-  const isMountedRef = useRef(true);
-  const silenceTimeoutRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const vadRef = useRef(null);
-  const keepAliveIntervalRef = useRef(null);
-  const ttsAudioRef = useRef(null);
+  // Voice settings states
+  const [localVoiceSettings, setLocalVoiceSettings] = useState(voiceSettings || {
+    voice: "alloy",
+    model: "gpt-4o-realtime-preview",
+    temperature: 0.8,
+    vadThreshold: 0.5,
+    silenceDuration: 200,
+    instructions: "You are a helpful, witty, and friendly AI assistant. Keep your responses concise and conversational."
+  });
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    initializeVoices();
-    loadTtsVoices(ttsProvider);
-    
-    return () => {
-      isMountedRef.current = false;
-      cleanup();
-    };
-  }, []);
-
-  useEffect(() => {
-    loadTtsVoices(ttsProvider);
-  }, [ttsProvider]);
-
-  // Voice mode functions (copied from VoiceMode.jsx)
-  const initializeVoices = () => {
-    if (!('speechSynthesis' in window)) return;
-    
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-        const englishVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
-        if (englishVoice) {
-          setSelectedVoiceURI(englishVoice.voiceURI);
-        }
-      }
-    };
-
-    synthRef.current = window.speechSynthesis;
-    synthRef.current.onvoiceschanged = loadVoices;
-    loadVoices();
-  };
-
-  const loadTtsVoices = async (provider) => {
-    try {
-      const list = await listTtsVoices(provider);
-      setAvailableTtsVoices(list);
-      const stored = getDefaultTTSVoice();
-      const exists = list.find(v => v.id === stored);
-      if (exists) {
-        setSelectedTtsVoiceId(stored);
-      } else if (list[0]) {
-        setSelectedTtsVoiceId(list[0].id);
-        setDefaultTTSVoice(list[0].id);
-      }
-    } catch (e) {
-      console.warn('Failed to load TTS voices', e);
-      setAvailableTtsVoices([]);
-    }
-  };
-
-  const cleanup = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.close(1000, 'User disconnected');
-      wsRef.current = null;
-    }
-    
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => track.stop());
-      audioStreamRef.current = null;
-    }
-    
-    if (synthRef.current) {
-      synthRef.current.cancel();
-    }
-    if (ttsAudioRef.current) {
-      try { ttsAudioRef.current.pause(); ttsAudioRef.current.src = ''; } catch {}
-      ttsAudioRef.current = null;
-    }
-    
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    
-    setIsListening(false);
-  };
-
-  const handleDisconnect = () => {
-    cleanup();
-    
-    if (fullTranscript.length > 0 && onTranscriptSave) {
-      onTranscriptSave(fullTranscript);
-    }
-    
-    setIsConnected(false);
-    setCurrentSpeaker(null);
-    setIsProcessing(false);
-    setTranscript("");
-    setFullTranscript([]);
+  const handleVoiceSettingChange = (key, value) => {
+    const newSettings = { ...localVoiceSettings, [key]: value };
+    setLocalVoiceSettings(newSettings);
+    setVoiceSettings?.(newSettings);
   };
 
   if (!isOpen) return null;
@@ -209,124 +70,6 @@ export default function SettingsPanel({
         {/* Content */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-6">
-            {/* Voice Mode Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-white/80">Voice Mode</h3>
-                <Badge variant="outline" className="text-xs">
-                  {isConnected ? 'Active' : 'Ready'}
-                </Badge>
-              </div>
-
-              {/* Voice Controls */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${aecEnabled ? 'bg-green-400' : 'bg-red-400'}`} />
-                    <span className="text-white/80 text-sm">Echo Cancellation</span>
-                  </div>
-                  <span className="text-xs text-white/60">
-                    {aecEnabled ? 'Active' : 'Not available'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
-                  <span className="text-white/80 text-sm">Mute Microphone</span>
-                  <Switch 
-                    checked={isMuted} 
-                    onCheckedChange={setIsMuted}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
-                  <span className="text-white/80 text-sm">Mute AI Voice</span>
-                  <Switch 
-                    checked={isSpeakerOff} 
-                    onCheckedChange={setIsSpeakerOff}
-                  />
-                </div>
-              </div>
-
-              {/* TTS Settings */}
-              <div className="space-y-3">
-                <Label className="text-white/70 text-sm">TTS Provider</Label>
-                <Select value={ttsProvider} onValueChange={(val) => { setTtsProvider(val); setDefaultTTSProvider(val); }}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TTSProvider.WebSpeech}>Browser (Web Speech)</SelectItem>
-                    <SelectItem value={TTSProvider.OpenAI}>OpenAI</SelectItem>
-                    <SelectItem value={TTSProvider.Google}>Google</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Label className="text-white/70 text-sm">AI Voice</Label>
-                <Select value={selectedTtsVoiceId || ''} onValueChange={(val) => { setSelectedTtsVoiceId(val); setDefaultTTSVoice(val); }}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTtsVoices.map(v => (
-                      <SelectItem key={v.id} value={v.id}>
-                        <div>
-                          <div className="font-medium">{v.name}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Voice Status */}
-              {isConnected && (
-                <div className="bg-white/5 p-3 rounded-lg border border-white/10">
-                  <div className="text-center">
-                    <div className={`
-                      w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 transition-all duration-300
-                                             ${currentSpeaker === 'user'
-                         ? 'bg-gradient-to-br from-slate-600 to-slate-700 animate-pulse scale-110'
-                         : currentSpeaker === 'ai'
-                           ? 'bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse scale-110'
-                           : currentSpeaker === 'thinking'
-                             ? 'bg-gradient-to-br from-orange-600 to-red-600 animate-pulse scale-110'
-                             : 'bg-gradient-to-br from-slate-600 to-slate-700'
-                       }
-                    `}>
-                      <Radio className="w-6 h-6 text-white" />
-                    </div>
-                    <p className="text-sm text-white/80">
-                      {currentSpeaker === 'thinking' ? 'AI Thinking' : currentSpeaker === 'ai' ? 'AI Speaking' : 'Voice Active'}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Voice Controls */}
-              <div className="flex items-center justify-center space-x-2">
-                                 {!isConnected ? (
-                   <Button
-                     className="bg-slate-700 hover:bg-slate-600 text-white"
-                     size="sm"
-                   >
-                    <Phone className="w-4 h-4 mr-2" />
-                    Start Voice Mode
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleDisconnect}
-                    variant="destructive"
-                    size="sm"
-                  >
-                    <PhoneOff className="w-4 h-4 mr-2" />
-                    Stop Voice Mode
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <Separator className="bg-white/10" />
-
             {/* Chat Settings Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-white/80">Chat Settings</h3>
@@ -390,10 +133,121 @@ export default function SettingsPanel({
                 </div>
               </div>
             </div>
+
+            {/* Voice Settings Section */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Mic className="w-4 h-4 text-white/60" />
+                <h3 className="text-sm font-medium text-white/80">Voice Settings</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">API Key Status</Label>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${localStorage.getItem('OPENAI_API_KEY') ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="text-xs text-white/50">
+                      {localStorage.getItem('OPENAI_API_KEY') ? 'API key configured' : 'No API key found'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/50">
+                    Configure your OpenAI API key in the <span className="text-white/70">API Keys</span> page
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">Voice Model</Label>
+                  <Select
+                    value={localVoiceSettings.model}
+                    onValueChange={(value) => handleVoiceSettingChange('model', value)}
+                  >
+                    <SelectTrigger className="text-white/92">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o-realtime-preview">GPT-4o Realtime Preview</SelectItem>
+                      <SelectItem value="gpt-4o-mini-realtime-preview">GPT-4o Mini Realtime Preview</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">Voice</Label>
+                  <Select
+                    value={localVoiceSettings.voice}
+                    onValueChange={(value) => handleVoiceSettingChange('voice', value)}
+                  >
+                    <SelectTrigger className="text-white/92">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="alloy">Alloy</SelectItem>
+                      <SelectItem value="ash">Ash</SelectItem>
+                      <SelectItem value="ballad">Ballad</SelectItem>
+                      <SelectItem value="coral">Coral</SelectItem>
+                      <SelectItem value="echo">Echo</SelectItem>
+                      <SelectItem value="sage">Sage</SelectItem>
+                      <SelectItem value="shimmer">Shimmer</SelectItem>
+                      <SelectItem value="verse">Verse</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">Voice Temperature: {localVoiceSettings.temperature.toFixed(2)}</Label>
+                  <Slider
+                    value={[localVoiceSettings.temperature]}
+                    onValueChange={(value) => handleVoiceSettingChange('temperature', value[0])}
+                    max={1.2}
+                    min={0.6}
+                    step={0.1}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-white/50">Higher values make responses more creative</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">VAD Threshold: {localVoiceSettings.vadThreshold.toFixed(2)}</Label>
+                  <Slider
+                    value={[localVoiceSettings.vadThreshold]}
+                    onValueChange={(value) => handleVoiceSettingChange('vadThreshold', value[0])}
+                    max={1}
+                    min={0}
+                    step={0.1}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-white/50">Voice activity detection sensitivity</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">Silence Duration (ms)</Label>
+                  <Input
+                    type="number"
+                    value={localVoiceSettings.silenceDuration}
+                    onChange={(e) => handleVoiceSettingChange('silenceDuration', parseInt(e.target.value))}
+                    min="100"
+                    max="1000"
+                    step="50"
+                    className="text-white/92"
+                  />
+                  <p className="text-xs text-white/50">Wait time before AI responds</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/70 text-sm">System Instructions</Label>
+                  <Textarea
+                    value={localVoiceSettings.instructions}
+                    onChange={(e) => handleVoiceSettingChange('instructions', e.target.value)}
+                    className="text-white/92 min-h-[100px] text-sm"
+                    placeholder="Instructions for the AI assistant..."
+                  />
+                  <p className="text-xs text-white/50">Define how the AI should behave in voice chat</p>
+                </div>
+              </div>
+            </div>
           </div>
         </ScrollArea>
       </div>
     </>
   );
 }
-

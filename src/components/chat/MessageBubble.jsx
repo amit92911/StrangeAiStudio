@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, User, Bot, CheckCircle2, AlertCircle } from "lucide-react";
+import { Copy, User, Bot, CheckCircle2, AlertCircle, Mic } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from 'react-markdown';
 
@@ -55,13 +55,17 @@ export default function MessageBubble({ message }) {
             }
           `}>
             {isUser ? (
-              <p className="text-white/92 leading-relaxed whitespace-pre-wrap">
+              <p className={`text-white/92 leading-relaxed whitespace-pre-wrap ${
+                message.isVoice ? 'italic font-light' : ''
+              }`}>
                 {message.content}
               </p>
             ) : (
               <div className="prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown
-                  className="text-white/92 leading-relaxed"
+                  className={`text-white/92 leading-relaxed ${
+                    message.isVoice ? 'italic font-light' : ''
+                  }`}
                   components={{
                     code: ({ inline, className, children, ...props }) => {
                       return inline ? (
@@ -74,7 +78,11 @@ export default function MessageBubble({ message }) {
                         </pre>
                       );
                     },
-                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    p: ({ children }) => (
+                      <p className={`mb-2 last:mb-0 ${
+                        message.isVoice ? 'italic font-light' : ''
+                      }`}>{children}</p>
+                    ),
                     ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
                     li: ({ children }) => <li className="mb-1">{children}</li>,
@@ -100,6 +108,12 @@ export default function MessageBubble({ message }) {
             ${isUser ? 'flex-row-reverse' : 'flex-row'}
           `}>
             <div className="flex items-center space-x-2 text-xs text-white/50">
+              {message.isVoice && (
+                <div className="flex items-center space-x-1">
+                  <Mic className="w-3 h-3" />
+                  <span className="text-white/60">Voice</span>
+                </div>
+              )}
               {message.model_used && (
                 <Badge variant="outline" className="text-white/60 text-xs">
                   {message.model_used}
