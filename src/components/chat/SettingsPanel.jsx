@@ -27,7 +27,7 @@ export default function SettingsPanel({
   // Voice settings states
   const [localVoiceSettings, setLocalVoiceSettings] = useState(voiceSettings || {
     voice: "alloy",
-    model: "gpt-4o-realtime-preview",
+    model: "gpt-4o-realtime-preview-2024-10-01",
     temperature: 0.8,
     vadThreshold: 0.5,
     silenceDuration: 200,
@@ -165,8 +165,8 @@ export default function SettingsPanel({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-4o-realtime-preview">GPT-4o Realtime Preview</SelectItem>
-                      <SelectItem value="gpt-4o-mini-realtime-preview">GPT-4o Mini Realtime Preview</SelectItem>
+                      <SelectItem value="gpt-4o-realtime-preview-2024-10-01">GPT-4o Realtime Preview</SelectItem>
+                      <SelectItem value="gpt-4o-mini-realtime-preview-2024-12-17">GPT-4o Mini Realtime Preview</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

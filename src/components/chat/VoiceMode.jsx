@@ -69,7 +69,7 @@ export default function VoiceMode({
     setConnectionStatus("Connecting...");
 
     try {
-      const model = voiceSettings.model || "gpt-4o-realtime-preview";
+      const model = voiceSettings.model || "gpt-4o-realtime-preview-2024-10-01";
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
       
       wsRef.current = new WebSocket(wsUrl, [
@@ -334,6 +334,16 @@ export default function VoiceMode({
         
       case 'input_audio_buffer.committed':
         console.log('Audio buffer committed');
+        // Trigger response generation after audio is committed
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log('Triggering response generation...');
+          wsRef.current.send(JSON.stringify({
+            type: 'response.create',
+            response: {
+              modalities: ['text', 'audio']
+            }
+          }));
+        }
         break;
         
       case 'response.created':
@@ -363,7 +373,8 @@ export default function VoiceMode({
         break;
         
       case 'error':
-        console.error('Realtime API error:', message.error);
+        console.error('Realtime API error:', message);
+        console.error('Error details:', JSON.stringify(message.error, null, 2));
         // Don't show cancellation errors in the UI if they're expected
         if (message.error?.code === 'response_cancel_not_active') {
           console.log('Ignoring cancel error - no active response');
@@ -376,6 +387,16 @@ export default function VoiceMode({
             }, 2000);
           }
         }
+        break;
+        
+      case 'conversation.item.input_audio_transcription.failed':
+        console.error('Transcription failed:', message);
+        console.error('Transcription error details:', JSON.stringify(message.error, null, 2));
+        break;
+        
+      case 'conversation.item.created':
+        // This is normal - just log it
+        console.log('Conversation item created:', message.item);
         break;
         
       default:
