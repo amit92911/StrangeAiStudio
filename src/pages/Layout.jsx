@@ -19,6 +19,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const navigationItems = [
   {
@@ -67,13 +73,19 @@ export default function Layout({ children, currentPageName }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const SidebarContent = () => (
-    <div className="h-full bg-card/60 backdrop-blur-xl border-r border-white/10 flex flex-col">
+    <TooltipProvider delayDuration={300}>
+      <div className="h-full bg-zinc-900/95 backdrop-blur-xl border-r border-zinc-800 flex flex-col shadow-2xl relative">
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/0 via-zinc-900/50 to-zinc-900/0 pointer-events-none" />
       {/* Header with Collapse Button */}
-      <div className={cn("p-6 border-b border-white/10 flex flex-col", isCollapsed ? "p-3 items-center" : "")}> 
+      <div className={cn(
+        "border-b border-zinc-800 flex flex-col transition-all duration-300 relative z-10",
+        isCollapsed ? "p-3 items-center" : "p-6"
+      )}>
         <div className="flex items-center justify-between w-full mb-4">
           <Link to={createPageUrl("Chat")} className={cn("flex items-center space-x-3", isCollapsed && "hidden")}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-slate-100" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-600/20">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div className={cn("transition-opacity duration-200", isCollapsed && "opacity-0 w-0")}>
               <h1 className="text-lg font-semibold text-white/95 whitespace-nowrap brand-strangeai-title">strangeAi</h1>
@@ -84,7 +96,7 @@ export default function Layout({ children, currentPageName }) {
           <Button
             variant="ghost"
             size="icon"
-            className="hidden lg:flex text-white/60 hover:text-white hover:bg-white/10"
+            className="hidden lg:flex text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
             onClick={() => setIsCollapsed(!isCollapsed)}
           >
             <Menu className="w-5 h-5" />
@@ -101,29 +113,21 @@ export default function Layout({ children, currentPageName }) {
         </div>
 
         {/* Search */}
-        <div className={cn("relative w-full", isCollapsed && "hidden")}>
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-          <Input
-            placeholder="Search..."
-            className="pl-10 placeholder:text-white/40"
-          />
-        </div>
+        {!isCollapsed && (
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Input
+              placeholder="Search..."
+              className="pl-10 bg-zinc-800/50 border-zinc-700 placeholder:text-zinc-500 hover:bg-zinc-800 focus:bg-zinc-800 transition-colors"
+            />
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto py-4">
-        {/* Main Actions */}
-        <div className="px-4 mb-6">
-          <Link to={createPageUrl("Chat")}>
-            <Button className={cn("w-full bg-slate-700 hover:bg-slate-600 text-white font-medium", isCollapsed && "w-12 h-12 p-0 justify-center")}> 
-              <Plus className={cn("w-5 h-5", !isCollapsed && "mr-2")} />
-              <span className={cn(isCollapsed && "sr-only")}>New Chat</span>
-            </Button>
-          </Link>
-        </div>
-
+      <div className="flex-1 overflow-y-auto py-4 relative z-10">
         {/* Main Navigation */}
-        <div className="px-4 mb-8">
+        <div className={cn("mb-8", isCollapsed ? "px-3" : "px-4")}>
           <div className="space-y-1">
             {navigationItems.filter(item => item.section === 'main').map((item) => (
               <Link
@@ -131,25 +135,33 @@ export default function Layout({ children, currentPageName }) {
                 to={item.url}
                 title={isCollapsed ? item.title : undefined}
                 className={cn(
-                  "flex items-center px-3 py-2.5 rounded-xl transition-all duration-200",
+                  "flex items-center rounded-lg transition-all duration-200 group",
                   location.pathname === item.url
-                    ? 'bg-white/10 border border-white/10 text-white shadow'
-                    : 'text-white/60 hover:text-white hover:bg-white/5',
-                  isCollapsed && "justify-center"
+                    ? 'bg-blue-600/20 border border-blue-600/30 text-white shadow-lg shadow-blue-600/10'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50 border border-transparent',
+                  isCollapsed ? "justify-center p-2.5" : "px-3 py-2.5"
                 )}
               >
-                <item.icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
-                <span className={cn("font-medium", isCollapsed && "sr-only")}>{item.title}</span>
+                <item.icon className={cn(
+                  "w-5 h-5 transition-colors",
+                  !isCollapsed && "mr-3",
+                  location.pathname === item.url ? "text-blue-400" : "text-zinc-500 group-hover:text-zinc-300"
+                )} />
+                {!isCollapsed && (
+                  <span className="font-medium">{item.title}</span>
+                )}
               </Link>
             ))}
           </div>
         </div>
 
         {/* Tools Section */}
-        <div className="px-4">
-          <h3 className={cn("text-xs font-medium text-white/50 uppercase tracking-wider mb-3 px-3", isCollapsed && "sr-only")}> 
-            Tools
-          </h3>
+        <div className={cn(isCollapsed ? "px-3" : "px-4")}>
+          {!isCollapsed && (
+            <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3 px-3">
+              Tools
+            </h3>
+          )}
           <div className="space-y-1">
             {navigationItems.filter(item => item.section === 'tools').map((item) => (
               <Link
@@ -157,21 +169,28 @@ export default function Layout({ children, currentPageName }) {
                 to={item.url}
                 title={isCollapsed ? item.title : undefined}
                 className={cn(
-                  "flex items-center px-3 py-2.5 rounded-xl transition-all duration-200",
+                  "flex items-center rounded-lg transition-all duration-200 group",
                   location.pathname === item.url
-                    ? 'bg-white/10 border border-white/10 text-white shadow'
-                    : 'text-white/60 hover:text-white hover:bg-white/5',
-                  isCollapsed && "justify-center"
+                    ? 'bg-blue-600/20 border border-blue-600/30 text-white shadow-lg shadow-blue-600/10'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50 border border-transparent',
+                  isCollapsed ? "justify-center p-2.5" : "px-3 py-2.5"
                 )}
               >
-                <item.icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
-                <span className={cn("font-medium", isCollapsed && "sr-only")}>{item.title}</span>
+                <item.icon className={cn(
+                  "w-5 h-5 transition-colors",
+                  !isCollapsed && "mr-3",
+                  location.pathname === item.url ? "text-blue-400" : "text-zinc-500 group-hover:text-zinc-300"
+                )} />
+                {!isCollapsed && (
+                  <span className="font-medium">{item.title}</span>
+                )}
               </Link>
             ))}
           </div>
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 
   return (

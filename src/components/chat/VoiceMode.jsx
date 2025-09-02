@@ -15,6 +15,8 @@ export default function VoiceMode({
   const [connectionStatus, setConnectionStatus] = useState("Disconnected");
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const MAX_MESSAGES = 100; // Limit conversation length to prevent memory issues
   
   // WebSocket and audio references
   const wsRef = useRef(null);
@@ -37,6 +39,25 @@ export default function VoiceMode({
       }
     };
   }, [isOpen]);
+
+  // Auto-reconnect on unexpected disconnection
+  useEffect(() => {
+    if (isOpen && !isConnected && wsRef.current === null) {
+      // Don't auto-reconnect if we have too many messages (memory protection)
+      if (messageCount > MAX_MESSAGES) {
+        setConnectionStatus("Session limit reached - please restart");
+        return;
+      }
+      
+      const reconnectTimer = setTimeout(() => {
+        console.log('Attempting to reconnect...');
+        setConnectionStatus("Reconnecting...");
+        connect();
+      }, 3000);
+      
+      return () => clearTimeout(reconnectTimer);
+    }
+  }, [isConnected, isOpen, messageCount]);
 
   const connect = async () => {
     if (!apiKey) {
@@ -102,15 +123,24 @@ export default function VoiceMode({
       
       wsRef.current.onerror = (error) => {
         console.error('WebSocket error:', error);
-        setConnectionStatus("Connection error");
+        setConnectionStatus("Connection error - retrying...");
+        // WebSocket will trigger onclose after onerror
       };
       
-      wsRef.current.onclose = () => {
-        console.log('Disconnected from Realtime API');
+      wsRef.current.onclose = (event) => {
+        console.log('Disconnected from Realtime API', event.code, event.reason);
         setIsConnected(false);
-        setConnectionStatus("Disconnected");
+        
+        // Check if it was an unexpected disconnection
+        if (event.code !== 1000) { // 1000 is normal closure
+          setConnectionStatus("Connection lost - will retry...");
+        } else {
+          setConnectionStatus("Disconnected");
+        }
+        
         stopAudioCapture();
         stopAllAudio();
+        wsRef.current = null;
       };
       
     } catch (error) {
@@ -122,7 +152,7 @@ export default function VoiceMode({
 
   const disconnect = () => {
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'User disconnected'); // Normal closure
       wsRef.current = null;
     }
     stopAudioCapture();
@@ -171,12 +201,23 @@ export default function VoiceMode({
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
         
-        // Send audio to Realtime API
-        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
-        wsRef.current.send(JSON.stringify({
-          type: 'input_audio_buffer.append',
-          audio: base64Audio
-        }));
+        try {
+          // Send audio to Realtime API (but check connection state first)
+          if (wsRef.current.readyState === WebSocket.OPEN) {
+            const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
+            wsRef.current.send(JSON.stringify({
+              type: 'input_audio_buffer.append',
+              audio: base64Audio
+            }));
+          }
+        } catch (error) {
+          console.error('Error sending audio:', error);
+          // Check if WebSocket is closed
+          if (wsRef.current.readyState === WebSocket.CLOSED) {
+            console.log('WebSocket closed, stopping audio capture');
+            stopAudioCapture();
+          }
+        }
       };
       
       sourceRef.current.connect(processorRef.current);
@@ -234,6 +275,17 @@ export default function VoiceMode({
         if (message.transcript) {
           console.log('User transcript:', message.transcript);
           onTranscriptionUpdate?.('user', message.transcript);
+          setMessageCount(prev => prev + 1);
+          
+          // Check if conversation is getting too long
+          if (messageCount > MAX_MESSAGES) {
+            console.warn('Conversation length limit reached, disconnecting for safety');
+            setConnectionStatus("Session limit reached - restarting...");
+            disconnect();
+            setTimeout(() => {
+              onClose();
+            }, 2000);
+          }
         }
         break;
         
@@ -249,6 +301,7 @@ export default function VoiceMode({
           console.log('Assistant complete:', message.transcript);
           onTranscriptionUpdate?.('assistant', message.transcript);
           setCurrentTranscript("");
+          setMessageCount(prev => prev + 1);
         }
         break;
         
@@ -263,12 +316,14 @@ export default function VoiceMode({
         setConnectionStatus("Listening...");
         // User interruption - stop current audio
         stopAllAudio();
-        currentResponseIdRef.current = null;
         
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Only cancel if there's an active response
+        if (currentResponseIdRef.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log('Cancelling active response:', currentResponseIdRef.current);
           wsRef.current.send(JSON.stringify({
             type: 'response.cancel'
           }));
+          currentResponseIdRef.current = null;
         }
         break;
         
@@ -309,7 +364,18 @@ export default function VoiceMode({
         
       case 'error':
         console.error('Realtime API error:', message.error);
-        setConnectionStatus(`Error: ${message.error.message || JSON.stringify(message.error)}`);
+        // Don't show cancellation errors in the UI if they're expected
+        if (message.error?.code === 'response_cancel_not_active') {
+          console.log('Ignoring cancel error - no active response');
+        } else {
+          setConnectionStatus(`Error: ${message.error?.message || JSON.stringify(message.error)}`);
+          // Auto-recover from certain errors
+          if (message.error?.code === 'invalid_request_error') {
+            setTimeout(() => {
+              setConnectionStatus("Ready - Start speaking");
+            }, 2000);
+          }
+        }
         break;
         
       default:
@@ -331,10 +397,15 @@ export default function VoiceMode({
         float32Array[i] = int16Array[i] / 32768.0;
       }
       
-      if (!audioContextRef.current) {
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
           sampleRate: 24000
         });
+      }
+      
+      // Resume audio context if suspended (browser autoplay policy)
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
       }
       
       const audioBuffer = audioContextRef.current.createBuffer(1, float32Array.length, 24000);
@@ -344,9 +415,26 @@ export default function VoiceMode({
       source.buffer = audioBuffer;
       source.connect(audioContextRef.current.destination);
       
+      // Limit the number of active sources to prevent memory issues
+      if (activeAudioSourcesRef.current.size > 10) {
+        const oldestSource = activeAudioSourcesRef.current.values().next().value;
+        try {
+          oldestSource.stop();
+          oldestSource.disconnect();
+        } catch (e) {
+          // Already stopped
+        }
+        activeAudioSourcesRef.current.delete(oldestSource);
+      }
+      
       activeAudioSourcesRef.current.add(source);
       source.onended = () => {
         activeAudioSourcesRef.current.delete(source);
+        try {
+          source.disconnect();
+        } catch (e) {
+          // Already disconnected
+        }
       };
       
       const currentTime = audioContextRef.current.currentTime;
@@ -362,6 +450,10 @@ export default function VoiceMode({
       
     } catch (error) {
       console.error('Error playing audio delta:', error);
+      // Reset audio context on critical errors
+      if (error.name === 'InvalidStateError') {
+        audioContextRef.current = null;
+      }
     }
   };
 
@@ -404,7 +496,7 @@ export default function VoiceMode({
             Voice Mode
           </span>
           <span className="text-xs text-white/60">
-            {connectionStatus}
+            {connectionStatus} {messageCount > 0 && `(${messageCount} messages)`}
           </span>
         </div>
       </div>
@@ -500,6 +592,25 @@ export default function VoiceMode({
           title="Send audio buffer"
         >
           Send
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              console.log('Clearing conversation history');
+              setMessageCount(0);
+              setConnectionStatus("Conversation cleared");
+              setTimeout(() => {
+                setConnectionStatus("Ready - Start speaking");
+              }, 1500);
+            }
+          }}
+          className="text-white/60 hover:text-white hover:bg-white/10 text-xs"
+          title="Clear conversation history"
+        >
+          Clear
         </Button>
         
         <Button

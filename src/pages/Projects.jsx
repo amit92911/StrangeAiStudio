@@ -52,27 +52,27 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center bg-zinc-950">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60">Loading projects...</p>
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-zinc-500">Loading projects...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-zinc-950">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white/95 mb-2">Projects</h1>
-            <p className="text-white/60">Organize your AI conversations by project</p>
+            <h1 className="text-2xl font-bold text-zinc-100 mb-2">Projects</h1>
+            <p className="text-zinc-500">Organize your AI conversations by project</p>
           </div>
           <Button
             onClick={() => setShowCreateModal(true)}
-            className="bg-slate-700 hover:bg-slate-600"
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-2" />
             New Project
@@ -82,16 +82,16 @@ export default function ProjectsPage() {
         {/* Projects Grid */}
         {projects.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-6 bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center">
-              <FolderOpen className="w-8 h-8 text-white/60" />
+            <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-600/20 to-blue-700/20 backdrop-blur-sm border border-blue-600/30 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/10">
+              <FolderOpen className="w-8 h-8 text-blue-400" />
             </div>
-            <h3 className="text-xl font-semibold text-white/95 mb-2">No projects yet</h3>
-            <p className="text-white/60 mb-6 max-w-md mx-auto">
+            <h3 className="text-xl font-semibold text-zinc-100 mb-2">No projects yet</h3>
+            <p className="text-zinc-500 mb-6 max-w-md mx-auto">
               Create your first project to organize your AI conversations and manage prompts, files, and settings.
             </p>
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-slate-700 hover:bg-slate-600"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create First Project

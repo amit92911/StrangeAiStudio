@@ -237,7 +237,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleVoiceTranscription = (role, transcript) => {
+  const handleVoiceTranscription = async (role, transcript) => {
     // Add voice transcription to messages
     const voiceMessage = {
       id: Date.now(),
@@ -252,7 +252,34 @@ export default function ChatPage() {
     
     // Save to database if chat exists
     if (currentChat?.id) {
-      Message.create(voiceMessage);
+      await Message.create(voiceMessage);
+      
+      // Mark chat as having voice messages
+      await ChatEntity.update(currentChat.id, { 
+        hasVoiceMessages: true,
+        updated_date: new Date().toISOString()
+      });
+      
+      // Auto-rename if it's a new chat (still has "New Chat" title) and this is the first user message
+      if (currentChat.title === "New Chat" && role === 'user' && messages.length === 0) {
+        try {
+          const titleResponse = await InvokeLLM({ 
+            prompt: `Generate a short, descriptive title (3-5 words) for a voice conversation that starts with: "${transcript}". Return only the title, no quotes or extra text.` 
+          });
+          const newTitle = (typeof titleResponse === 'object' ? titleResponse.output : titleResponse)
+            .replace(/[''"]/g, '').trim().slice(0, 50);
+          
+          if (newTitle && newTitle !== "New Chat") {
+            await ChatEntity.update(currentChat.id, { title: newTitle });
+            setCurrentChat(prev => ({ ...prev, title: newTitle }));
+            
+            // Refresh chats list to show updated title
+            await loadChats(selectedProject.id);
+          }
+        } catch (titleError) {
+          console.warn("Could not generate title for voice chat:", titleError);
+        }
+      }
     }
   };
 
@@ -266,7 +293,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-full flex bg-transparent">
+    <div className="h-full flex bg-zinc-950">
       {/* Chat Sidebar */}
       <ChatSidebar
         isOpen={isChatSidebarOpen}
@@ -286,30 +313,30 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Header */}
-        <div className="bg-card/60 backdrop-blur-xl border-b border-white/10 p-4">
+        <div className="bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-800 p-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-white/60 hover:text-white hover:bg-white/10"
+                className="lg:hidden text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                 onClick={() => setIsChatSidebarOpen(!isChatSidebarOpen)}
               >
                 <MessageSquare className="w-4 h-4" />
               </Button>
               
               <div>
-                <h2 className="text-lg font-semibold text-white/95">
+                <h2 className="text-lg font-semibold text-zinc-100">
                   {currentChat?.title || "Select or create a chat"}
                 </h2>
-                <div className="flex items-center space-x-2 text-sm text-white/60">
+                <div className="flex items-center space-x-2 text-sm text-zinc-500">
                   <span>{selectedProvider}</span>
                   <span>•</span>
                   <span>{selectedModel}</span>
                   {selectedProject && (
                     <>
                       <span>•</span>
-                      <Badge variant="outline" className="border-white/10 text-white/60">
+                      <Badge variant="outline" className="border-zinc-700 text-zinc-500">
                         {selectedProject.name}
                       </Badge>
                     </>
@@ -330,7 +357,7 @@ export default function ChatPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white/60 hover:text-white hover:bg-white/10"
+                className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                 onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
               >
                 <Settings className="w-4 h-4" />
@@ -441,7 +468,7 @@ export default function ChatPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-white/60 hover:text-white hover:bg-white/10"
+                      className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                       onClick={toggleVoiceMode}
                       title="Start voice chat"
                     >
@@ -451,7 +478,7 @@ export default function ChatPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-white/60 hover:text-white hover:bg-white/10"
+                      className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
                     >
                       <Paperclip className="w-4 h-4" />
                     </Button>

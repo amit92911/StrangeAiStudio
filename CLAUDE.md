@@ -96,13 +96,19 @@ The voice mode provides natural, real-time voice conversations with AI using Ope
 - **Live Transcription**: Both user and AI speech are transcribed and displayed in the chat
 - **Multiple Voices**: Choose from 8 different AI voices (Alloy, Ash, Ballad, Coral, Echo, Sage, Shimmer, Verse)
 - **Customizable Settings**: Adjust temperature, VAD threshold, silence duration, and system instructions
+- **Auto-Reconnection**: Automatically reconnects on unexpected disconnections
+- **Memory Protection**: Limits conversation to 100 messages to prevent memory issues
+- **Error Recovery**: Graceful handling of WebSocket errors and audio playback issues
+- **Conversation Management**: Clear button to reset conversation history without disconnecting
 
 ### Technical Implementation
-- **WebSocket Connection**: Uses OpenAI Realtime API WebSocket endpoint
+- **WebSocket Connection**: Uses OpenAI Realtime API WebSocket endpoint with automatic reconnection
 - **Audio Processing**: Real-time PCM16 audio encoding/decoding at 24kHz
 - **Voice Activity Detection (VAD)**: Server-side VAD for automatic turn detection
-- **Audio Context**: Web Audio API for audio capture and playback
-- **State Management**: React hooks for connection and transcription state
+- **Audio Context**: Web Audio API for audio capture and playback with automatic recovery
+- **State Management**: React hooks for connection, transcription, and error state
+- **Memory Management**: Limits active audio sources and conversation length to prevent crashes
+- **Error Handling**: Graceful recovery from connection losses and API errors
 
 ### Configuration
 Voice settings are managed through the Settings Panel and include:
@@ -118,3 +124,25 @@ Voice settings are managed through the Settings Panel and include:
 - Configured through the API Keys page
 - Voice mode checks for API key presence before connecting
 - Note: Realtime API access requires specific OpenAI account permissions
+
+### Voice Mode UI Controls
+- **Phone Icon**: Start voice mode from chat input bar
+- **Mute/Unmute Button**: Toggle microphone input
+- **Test Button**: Send test message to verify connection
+- **Send Button**: Manually commit audio buffer and trigger response
+- **Clear Button**: Reset conversation history without disconnecting
+- **End Call Button**: Disconnect and close voice mode
+
+### Visual Indicators
+- **Connection Status**: Shows current state (Connecting, Ready, Listening, Processing, etc.)
+- **Message Counter**: Displays number of messages in current session
+- **Wave Visualizer**: Animated bars showing audio activity
+- **Voice Badge**: Italic text styling for voice messages with microphone icon
+- **Live Transcription**: Real-time display of current speech being processed
+
+### Error Handling & Recovery
+- **Automatic Reconnection**: Reconnects after unexpected disconnections
+- **Session Limits**: Auto-disconnects after 100 messages to prevent memory issues
+- **Error Recovery**: Handles WebSocket errors without crashing
+- **Audio Context Recovery**: Automatically recreates audio context on errors
+- **Graceful Degradation**: Shows clear error messages and recovery status
